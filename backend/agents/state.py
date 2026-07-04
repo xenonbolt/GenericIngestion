@@ -45,3 +45,4 @@ class AgentState(TypedDict):
     networkx_answer: str
     kuzu_answer: str
     is_relevant: bool
+    retrieval_attempts: int

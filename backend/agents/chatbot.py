@@ -73,7 +73,7 @@ class ChatbotAgent:
             lambda state: state.get("intent", "chat"),
             {
                 "search": "task_decomposer",
-                "data_analysis": "data_analysis",
+                "data_analysis": "task_decomposer",
                 "graph_search": "networkx_qa",
                 "chat": "generator_agent"
             }
@@ -86,15 +86,31 @@ class ChatbotAgent:
         workflow.add_edge("kuzu_qa", "graph_judge")
         workflow.add_edge("graph_judge", "generator_agent")
         
-        workflow.add_edge("task_decomposer", "retrieval_synthesizer")
+        workflow.add_conditional_edges(
+            "task_decomposer",
+            lambda state: state.get("intent"),
+            {
+                "search": "retrieval_synthesizer",
+                "data_analysis": "data_analysis"
+            }
+        )
         workflow.add_edge("retrieval_synthesizer", "relevance_evaluator")
         
         # Conditional routing from relevance
+        def route_relevance(state):
+            if state.get("is_relevant"):
+                return "generate"
+            elif state.get("retrieval_attempts", 0) < 3:
+                return "retry_retrieval"
+            else:
+                return "generate"
+
         workflow.add_conditional_edges(
             "relevance_evaluator",
-            lambda state: "generate" if state.get("is_relevant") else "generate", # fallback to generate anyway but with poor context flag
+            route_relevance,
             {
-                "generate": "generator_agent"
+                "generate": "generator_agent",
+                "retry_retrieval": "retrieval_synthesizer"
             }
         )
         

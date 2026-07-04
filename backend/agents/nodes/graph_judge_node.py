@@ -33,7 +33,7 @@ Respond only with the text of the chosen answer, optionally appending a short no
                         
             await streamer.emit_node_completed('graph_judge', {'tokens': 15, 'latency': 120, 'cost': 0.0001})
             
-            return {"context": best_context}
+            return {"context": best_context, "is_relevant": True}
         except Exception as e:
             fallback = f"Judge failed. Nx: {nx_ans} | Kz: {kz_ans}"
             await streamer.emit_node_completed('graph_judge', {'tokens': 15, 'latency': 120, 'cost': 0.0001})

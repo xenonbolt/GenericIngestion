@@ -7,14 +7,16 @@ class QueryTranslatorNode:
 
     async def __call__(self, state: AgentState):
         await streamer.emit_node_active('query_translator', 'Running translator...')
+        history_str = "\n".join([f"{msg.type}: {msg.content}" for msg in state["messages"][-5:-1]])
         latest_msg = state["messages"][-1].content
         prompt = (
-            "You are a query translator. The user just said: '{query}'.\n"
-            "If the query is vague (like 'Get me the report' or 'Summarize the data'), "
-            "translate it into a highly explicit and precise search instruction. "
-            "If it's already precise or just conversational, return it as is. "
+            f"You are a query translator. Here is the recent chat history:\n{history_str}\n\n"
+            f"The user just said: '{latest_msg}'.\n"
+            "If the query is vague, context-dependent (like 'third user'), or needs coreference resolution, "
+            "translate it into a highly explicit and precise standalone search instruction. "
+            "If it's already precise, return it as is. "
             "Output ONLY the translated query text, nothing else."
-        ).format(query=latest_msg)
+        )
         
         resp = await self.llm.ainvoke([HumanMessage(content=prompt)])
         translated = resp.content.strip()

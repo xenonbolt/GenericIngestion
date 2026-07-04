@@ -10,7 +10,11 @@ class DataAnalysisNode:
 
     async def __call__(self, state: AgentState):
         await streamer.emit_node_active('data_analysis', 'Running data_analysis...')
-        query = state.get("translated_query", state["messages"][-1].content)
+        tasks = state.get("tasks", [])
+        if tasks:
+            query = " ".join(tasks)
+        else:
+            query = state.get("translated_query", state["messages"][-1].content)
                 
         # Discover all CSVs
         if not os.path.exists(self.uploads_dir):
@@ -45,7 +49,7 @@ class DataAnalysisNode:
                 self.llm, 
                 dataframes, 
                 verbose=True, 
-                agent_type="tool-calling",
+                agent_type="zero-shot-react-description",
                 allow_dangerous_code=True,
                 handle_parsing_errors=True
             )
@@ -58,7 +62,7 @@ class DataAnalysisNode:
             # Format context so the final generator uses it
             final_context = f"--- Pandas Data Analysis Result ---\n{output}"
             await streamer.emit_node_completed('data_analysis', {'tokens': 15, 'latency': 120, 'cost': 0.0001})
-            return {"context": final_context}
+            return {"context": final_context, "is_relevant": True}
             
         except Exception as e:
             print(f"Pandas agent error: {e}")

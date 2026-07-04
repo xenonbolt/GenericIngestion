@@ -131,13 +131,13 @@ const staticEdges = [
   { source: "intent_analyzer", target: "data_analysis" },
   { source: "intent_analyzer", target: "networkx_qa" },
   { source: "intent_analyzer", target: "generator_agent" },
-  { source: "task_decomposer", target: "kuzu_qa" },
-  { source: "task_decomposer", target: "networkx_qa" },
-  { source: "networkx_qa", target: "graph_judge" },
-  { source: "kuzu_qa", target: "graph_judge" },
-  { source: "graph_judge", target: "retrieval_synthesizer" },
+  { source: "task_decomposer", target: "retrieval_synthesizer" },
   { source: "retrieval_synthesizer", target: "relevance_evaluator" },
+  { source: "relevance_evaluator", target: "retrieval_synthesizer" },
   { source: "relevance_evaluator", target: "generator_agent" },
+  { source: "networkx_qa", target: "kuzu_qa" },
+  { source: "kuzu_qa", target: "graph_judge" },
+  { source: "graph_judge", target: "generator_agent" },
   { source: "data_analysis", target: "generator_agent" },
 ];
 

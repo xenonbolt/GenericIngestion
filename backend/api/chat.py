@@ -23,7 +23,19 @@ async def chat(request: ChatRequest):
         "message": f"Received message from {request.user_id}"
     })
     
+    from memory.cache_manager import cache_manager
+    cached_reply = cache_manager.get_cached_answer(request.message)
+    if cached_reply:
+        await streamer.broadcast({
+            "type": "state_transition",
+            "node": "END",
+            "message": "Served from Cache"
+        })
+        return {"reply": cached_reply}
+    
     response_text = await chatbot.invoke(request.session_id, request.user_id, request.message)
+    
+    cache_manager.set_cached_answer(request.message, response_text)
     
     await streamer.broadcast({
         "type": "state_transition",
@@ -42,3 +54,8 @@ async def get_sessions(user_id: str):
 async def get_history(session_id: str):
     messages = memory_manager.get_messages(session_id)
     return {"messages": messages}
+
+@router.delete("/chat/history/{session_id}")
+async def delete_history(session_id: str):
+    memory_manager.delete_session(session_id)
+    return {"status": "success", "message": "Session deleted"}

@@ -15,10 +15,13 @@ class RetrievalSynthesizerNode:
         for idx, task in enumerate(tasks):
                         
             # Vector Search (Semantic)
+            attempts = state.get("retrieval_attempts") or 0
+            offset = attempts * 15
             try:
-                results = pipeline.collection.query(query_texts=[task], n_results=15)
+                results = pipeline.collection.query(query_texts=[task], n_results=15 + offset)
                 docs = results.get("documents", [[]])[0]
-                vector_texts = docs if docs else []
+                # Slice to get only the new chunk batch if looping
+                vector_texts = docs[offset:] if docs else []
             except Exception as e:
                 print("Vector search error:", e)
                 vector_texts = []
@@ -44,4 +47,4 @@ class RetrievalSynthesizerNode:
         
         await streamer.emit_node_completed('retrieval_synthesizer', {'tokens': 15, 'latency': 120, 'cost': 0.0001})
         
-        return {"context": final_context}
+        return {"context": final_context, "retrieval_attempts": attempts + 1}

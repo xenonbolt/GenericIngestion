@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { MessageSquare, Plus, ChevronLeft, ChevronRight, Loader2, Clock } from "lucide-react";
+import { MessageSquare, Plus, ChevronLeft, ChevronRight, Loader2, Clock, Trash2 } from "lucide-react";
 import { ChatSession, User } from "../types";
 
 interface SidebarProps {
@@ -40,6 +40,20 @@ export default function Sidebar({
       console.error("Failed to fetch sessions:", err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const deleteSession = async (e: React.MouseEvent, sessionId: string) => {
+    e.stopPropagation();
+    try {
+      await fetch(`/chat/history/${sessionId}`, { method: 'DELETE' });
+      if (sessionId === currentSessionId) {
+        onNewChat();
+      } else {
+        fetchSessions();
+      }
+    } catch (err) {
+      console.error("Failed to delete session:", err);
     }
   };
 
@@ -98,10 +112,10 @@ export default function Sidebar({
             </div>
           ) : (
             sessions.map((session) => (
-              <button
+              <div
                 key={session.session_id}
                 onClick={() => onSelectSession(session.session_id)}
-                className={`w-full text-left p-3 rounded-xl transition-all flex flex-col gap-1 cursor-pointer ${
+                className={`group relative w-full text-left p-3 rounded-xl transition-all flex flex-col gap-1 cursor-pointer ${
                   currentSessionId === session.session_id
                     ? "bg-teal-500/10 border-teal-500/30 border text-teal-700 dark:text-teal-300"
                     : "bg-transparent border border-transparent hover:bg-gray-100 dark:hover:bg-zinc-800/60 text-gray-700 dark:text-zinc-300"
@@ -109,7 +123,7 @@ export default function Sidebar({
               >
                 <div className="flex items-start gap-2">
                   <MessageSquare size={14} className={`shrink-0 mt-0.5 ${currentSessionId === session.session_id ? 'text-teal-500' : 'text-gray-400'}`} />
-                  <span className="text-sm font-medium leading-tight line-clamp-2">
+                  <span className="text-sm font-medium leading-tight line-clamp-2 pr-6">
                     {session.title || "New Conversation"}
                   </span>
                 </div>
@@ -121,7 +135,14 @@ export default function Sidebar({
                     {session.message_count}
                   </span>
                 </div>
-              </button>
+                <button
+                  onClick={(e) => deleteSession(e, session.session_id)}
+                  className="absolute right-3 top-3 p-1.5 text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity bg-white/80 dark:bg-zinc-800/80 rounded-md backdrop-blur-sm"
+                  title="Delete chat"
+                >
+                  <Trash2 size={14} />
+                </button>
+              </div>
             ))
           )}
         </div>
