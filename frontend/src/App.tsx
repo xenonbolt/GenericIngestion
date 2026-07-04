@@ -41,7 +41,7 @@ const initialNodes: TraceNode[] = [
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
   const [theme, setTheme] = useState<"light" | "dark">("dark"); // Default dark mode look
-  
+
   // Modals
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [isAdminOpen, setIsAdminOpen] = useState(false);
@@ -164,17 +164,17 @@ export default function App() {
         ws.onmessage = (event) => {
           try {
             const data: TraceEvent = JSON.parse(event.data);
-            
+
             if (data.type === "node_active" && data.nodeId) {
               setTraceStatus("running");
               setNodesState((prev) =>
                 prev.map((n) =>
                   n.id === data.nodeId
                     ? {
-                        ...n,
-                        status: "active",
-                        action: data.action,
-                      }
+                      ...n,
+                      status: "active",
+                      action: data.action,
+                    }
                     : n
                 )
               );
@@ -187,8 +187,8 @@ export default function App() {
             } else if (data.type === "node_completed" && data.nodeId) {
               setNodesState((prev) =>
                 prev.map((n) =>
-                  n.id === data.nodeId ? { 
-                    ...n, 
+                  n.id === data.nodeId ? {
+                    ...n,
                     status: "completed",
                     tokens: data.metrics?.tokens,
                     latency: data.metrics?.latency,
@@ -196,7 +196,7 @@ export default function App() {
                   } : n
                 )
               );
-              
+
               if (data.metrics) {
                 setActiveNodeDetails((prev) => prev?.nodeId === data.nodeId ? { ...prev, metrics: data.metrics } : prev);
                 setAccumulatedMetrics((prev) => ({
@@ -339,11 +339,11 @@ export default function App() {
 
   return (
     <div className="h-screen flex flex-col bg-gray-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 transition-colors duration-300 overflow-hidden">
-      
+
       {/* Top Header Panel */}
       <header className="px-6 py-4 border-b border-gray-200 dark:border-zinc-800/80 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md sticky top-0 z-40 transition-colors duration-300">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-4">
-          
+
           {/* Left Branding */}
           <div className="flex items-center gap-3">
             <div className="h-10 w-10 rounded-xl bg-gradient-to-tr from-teal-500 to-violet-600 flex items-center justify-center text-white shadow-md shadow-teal-500/10">
@@ -366,7 +366,7 @@ export default function App() {
 
           {/* Right Action Bar */}
           <div className="flex items-center gap-3">
-            
+
             {/* Theme Toggle */}
             <button
               onClick={() => setTheme(theme === "light" ? "dark" : "light")}
@@ -435,130 +435,128 @@ export default function App() {
           onNewChat={handleNewChat}
         />
         <main className="flex-1 overflow-y-auto w-full p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-          
+
           {/* Left Side: Conversational Panel */}
           <section className="col-span-1 lg:col-span-5 flex flex-col gap-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-bold tracking-tight text-gray-700 dark:text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
-              <Zap className="h-4 w-4 text-teal-500" />
-              Agentic Chat Console
-            </h3>
-          </div>
-          <ChatPanel
-            messages={messages}
-            onSendMessage={handleSendMessage}
-            loading={chatLoading}
-            user={user}
-          />
-        </section>
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-bold tracking-tight text-gray-700 dark:text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
+                <Zap className="h-4 w-4 text-teal-500" />
+                Agentic Chat Console
+              </h3>
+            </div>
+            <ChatPanel
+              messages={messages}
+              onSendMessage={handleSendMessage}
+              loading={chatLoading}
+              user={user}
+            />
+          </section>
 
-        {/* Right Side: Graph Trace Visualization */}
-        <section className="col-span-1 lg:col-span-7 flex flex-col gap-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-            <h3 className="text-sm font-bold tracking-tight text-gray-700 dark:text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
-              <Workflow className="h-4 w-4 text-violet-500" />
-              Live Multi-Agent Trace
-            </h3>
+          {/* Right Side: Graph Trace Visualization */}
+          <section className="col-span-1 lg:col-span-7 flex flex-col gap-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <h3 className="text-sm font-bold tracking-tight text-gray-700 dark:text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
+                <Workflow className="h-4 w-4 text-violet-500" />
+                Live Multi-Agent Trace
+              </h3>
 
-            {/* WebSocket controls and Status indicators */}
-            <div className="flex items-center gap-3">
-              <span className="flex items-center gap-1.5 text-[10.5px]">
-                <span className={`h-2 w-2 rounded-full ${wsConnected ? "bg-green-500" : "bg-amber-500 animate-pulse"}`} />
-                <span className="text-gray-500 dark:text-zinc-400 font-mono">
-                  {wsConnected ? "WS connected" : "WS fallback (local sim)"}
+              {/* WebSocket controls and Status indicators */}
+              <div className="flex items-center gap-3">
+                <span className="flex items-center gap-1.5 text-[10.5px]">
+                  <span className={`h-2 w-2 rounded-full ${wsConnected ? "bg-green-500" : "bg-amber-500 animate-pulse"}`} />
+                  <span className="text-gray-500 dark:text-zinc-400 font-mono">
+                    {wsConnected ? "WS connected" : "WS fallback (local sim)"}
+                  </span>
                 </span>
-              </span>
-              <button
-                onClick={() => setUseCustomWs(!useCustomWs)}
-                className={`text-[10px] py-1 px-2.5 rounded-lg border font-medium transition-all cursor-pointer ${
-                  useCustomWs
-                    ? "bg-teal-50 border-teal-200 text-teal-700 dark:bg-teal-950/20 dark:border-teal-900/60 dark:text-teal-400"
-                    : "bg-gray-100 dark:bg-zinc-800 border-gray-200 dark:border-zinc-700 text-gray-500 dark:text-zinc-400"
-                }`}
-              >
-                Custom WS
-              </button>
-            </div>
-          </div>
-
-          {/* Custom WS parameters entry */}
-          {useCustomWs && (
-            <div className="p-3 bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 rounded-xl flex items-center gap-3 shadow-sm animate-fade-in text-xs">
-              <span className="font-semibold text-gray-500 dark:text-zinc-400 shrink-0 font-mono">WS URL:</span>
-              <input
-                type="text"
-                placeholder="ws://localhost:8000/ws/agent-stream"
-                value={customWsUrl}
-                onChange={(e) => setCustomWsUrl(e.target.value)}
-                className="flex-1 bg-gray-50 dark:bg-zinc-800/80 px-2.5 py-1 rounded border border-gray-300 dark:border-zinc-700 text-gray-800 dark:text-zinc-100 font-mono focus:outline-none"
-              />
-              <button
-                onClick={() => {
-                  setCustomWsUrl("");
-                  setUseCustomWs(false);
-                }}
-                className="text-gray-400 hover:text-zinc-600 dark:hover:text-zinc-300 font-semibold"
-              >
-                Reset
-              </button>
-            </div>
-          )}
-
-          {/* Core ReactFlow Graph canvas */}
-          <TraceGraph nodesState={nodesState} />
-
-          {/* Live Trace Telemetry Console underneath */}
-          <div className="p-4 bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 rounded-xl shadow-sm transition-all">
-            <h4 className="text-xs font-bold text-gray-800 dark:text-zinc-200 mb-3 uppercase tracking-wider font-sans border-b border-gray-100 dark:border-zinc-800/80 pb-2 flex items-center justify-between">
-              <span>Trace Realtime Metrics Console</span>
-              <span className={`px-2 py-0.5 rounded text-[9px] font-mono tracking-wider font-bold ${
-                traceStatus === "running"
-                  ? "bg-amber-100 dark:bg-amber-950/50 text-amber-700 dark:text-amber-400 animate-pulse"
-                  : traceStatus === "completed"
-                  ? "bg-green-100 dark:bg-green-950/50 text-green-700 dark:text-green-400"
-                  : "bg-gray-100 dark:bg-zinc-800 text-gray-500 dark:text-zinc-400"
-              }`}>
-                {traceStatus.toUpperCase()}
-              </span>
-            </h4>
-
-            {activeNodeDetails ? (
-              <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
-                {/* Active node actions detail */}
-                <div className="md:col-span-7 space-y-1">
-                  <div className="text-[10px] text-teal-600 dark:text-teal-400 font-bold uppercase font-mono tracking-wider">
-                    Executing Step: <span className="underline">{activeNodeDetails.nodeName}</span>
-                  </div>
-                  <p className="text-xs text-gray-700 dark:text-zinc-300 leading-relaxed font-medium">
-                    {activeNodeDetails.action}
-                  </p>
-                </div>
-
-                {/* Micro metrics tracking */}
-                <div className="md:col-span-5 border-l border-gray-100 dark:border-zinc-800/80 pl-4 grid grid-cols-3 md:grid-cols-1 gap-2.5 font-mono text-[11px]">
-                  <div className="flex md:items-center md:justify-between gap-1">
-                    <span className="text-gray-400 dark:text-zinc-500 flex items-center gap-1"><Database className="h-3.5 w-3.5" /> Tokens:</span>
-                    <strong className="text-gray-800 dark:text-zinc-200 font-bold">{accumulatedMetrics.tokens}t</strong>
-                  </div>
-                  <div className="flex md:items-center md:justify-between gap-1">
-                    <span className="text-gray-400 dark:text-zinc-500 flex items-center gap-1"><Clock className="h-3.5 w-3.5" /> Latency:</span>
-                    <strong className="text-gray-800 dark:text-zinc-200 font-bold">{accumulatedMetrics.latency}ms</strong>
-                  </div>
-                  <div className="flex md:items-center md:justify-between gap-1">
-                    <span className="text-gray-400 dark:text-zinc-500 flex items-center gap-1"><Coins className="h-3.5 w-3.5" /> Total Cost:</span>
-                    <strong className="text-teal-600 dark:text-teal-400 font-bold">${accumulatedMetrics.cost.toFixed(6)}</strong>
-                  </div>
-                </div>
+                <button
+                  onClick={() => setUseCustomWs(!useCustomWs)}
+                  className={`text-[10px] py-1 px-2.5 rounded-lg border font-medium transition-all cursor-pointer ${useCustomWs
+                      ? "bg-teal-50 border-teal-200 text-teal-700 dark:bg-teal-950/20 dark:border-teal-900/60 dark:text-teal-400"
+                      : "bg-gray-100 dark:bg-zinc-800 border-gray-200 dark:border-zinc-700 text-gray-500 dark:text-zinc-400"
+                    }`}
+                >
+                  Custom WS
+                </button>
               </div>
-            ) : (
-              <div className="text-center py-6">
-                <p className="text-xs text-gray-400 dark:text-zinc-500 font-mono">
-                  Awaiting conversational query input to initialize trace sequence.
-                </p>
+            </div>
+
+            {/* Custom WS parameters entry */}
+            {useCustomWs && (
+              <div className="p-3 bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 rounded-xl flex items-center gap-3 shadow-sm animate-fade-in text-xs">
+                <span className="font-semibold text-gray-500 dark:text-zinc-400 shrink-0 font-mono">WS URL:</span>
+                <input
+                  type="text"
+                  placeholder="ws://localhost:8000/ws/agent-stream"
+                  value={customWsUrl}
+                  onChange={(e) => setCustomWsUrl(e.target.value)}
+                  className="flex-1 bg-gray-50 dark:bg-zinc-800/80 px-2.5 py-1 rounded border border-gray-300 dark:border-zinc-700 text-gray-800 dark:text-zinc-100 font-mono focus:outline-none"
+                />
+                <button
+                  onClick={() => {
+                    setCustomWsUrl("");
+                    setUseCustomWs(false);
+                  }}
+                  className="text-gray-400 hover:text-zinc-600 dark:hover:text-zinc-300 font-semibold"
+                >
+                  Reset
+                </button>
               </div>
             )}
-          </div>
-        </section>
+
+            {/* Core ReactFlow Graph canvas */}
+            <TraceGraph nodesState={nodesState} />
+
+            {/* Live Trace Telemetry Console underneath */}
+            <div className="p-4 bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 rounded-xl shadow-sm transition-all">
+              <h4 className="text-xs font-bold text-gray-800 dark:text-zinc-200 mb-3 uppercase tracking-wider font-sans border-b border-gray-100 dark:border-zinc-800/80 pb-2 flex items-center justify-between">
+                <span>Trace Realtime Metrics Console</span>
+                <span className={`px-2 py-0.5 rounded text-[9px] font-mono tracking-wider font-bold ${traceStatus === "running"
+                    ? "bg-amber-100 dark:bg-amber-950/50 text-amber-700 dark:text-amber-400 animate-pulse"
+                    : traceStatus === "completed"
+                      ? "bg-green-100 dark:bg-green-950/50 text-green-700 dark:text-green-400"
+                      : "bg-gray-100 dark:bg-zinc-800 text-gray-500 dark:text-zinc-400"
+                  }`}>
+                  {traceStatus.toUpperCase()}
+                </span>
+              </h4>
+
+              {activeNodeDetails ? (
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+                  {/* Active node actions detail */}
+                  <div className="md:col-span-7 space-y-1">
+                    <div className="text-[10px] text-teal-600 dark:text-teal-400 font-bold uppercase font-mono tracking-wider">
+                      {traceStatus === "completed" ? "Execution Completed" : <>Executing Step: <span className="underline">{activeNodeDetails.nodeName}</span></>}
+                    </div>
+                    <p className="text-xs text-gray-700 dark:text-zinc-300 leading-relaxed font-medium">
+                      {traceStatus === "completed" ? "All workflow steps finalized successfully." : activeNodeDetails.action}
+                    </p>
+                  </div>
+
+                  {/* Micro metrics tracking */}
+                  <div className="md:col-span-5 border-l border-gray-100 dark:border-zinc-800/80 pl-4 grid grid-cols-3 md:grid-cols-1 gap-2.5 font-mono text-[11px]">
+                    <div className="flex md:items-center md:justify-between gap-1">
+                      <span className="text-gray-400 dark:text-zinc-500 flex items-center gap-1"><Database className="h-3.5 w-3.5" /> Tokens:</span>
+                      <strong className="text-gray-800 dark:text-zinc-200 font-bold">{accumulatedMetrics.tokens}t</strong>
+                    </div>
+                    <div className="flex md:items-center md:justify-between gap-1">
+                      <span className="text-gray-400 dark:text-zinc-500 flex items-center gap-1"><Clock className="h-3.5 w-3.5" /> Latency:</span>
+                      <strong className="text-gray-800 dark:text-zinc-200 font-bold">{accumulatedMetrics.latency}ms</strong>
+                    </div>
+                    <div className="flex md:items-center md:justify-between gap-1">
+                      <span className="text-gray-400 dark:text-zinc-500 flex items-center gap-1"><Coins className="h-3.5 w-3.5" /> Total Cost:</span>
+                      <strong className="text-teal-600 dark:text-teal-400 font-bold">${accumulatedMetrics.cost.toFixed(6)}</strong>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-6">
+                  <p className="text-xs text-gray-400 dark:text-zinc-500 font-mono">
+                    Awaiting conversational query input to initialize trace sequence.
+                  </p>
+                </div>
+              )}
+            </div>
+          </section>
 
         </main>
       </div>

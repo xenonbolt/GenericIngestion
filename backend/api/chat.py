@@ -31,6 +31,9 @@ async def chat(request: ChatRequest):
             "node": "END",
             "message": "Served from Cache"
         })
+        await streamer.broadcast({
+            "type": "trace_completed"
+        })
         return {"reply": cached_reply}
     
     response_text = await chatbot.invoke(request.session_id, request.user_id, request.message)
@@ -41,6 +44,10 @@ async def chat(request: ChatRequest):
         "type": "state_transition",
         "node": "END",
         "message": "Finished processing message"
+    })
+    
+    await streamer.broadcast({
+        "type": "trace_completed"
     })
     
     return {"reply": response_text}

@@ -113,25 +113,25 @@ const nodeTypes = {
 };
 
 const nodeLayout: Record<string, { x: number; y: number }> = {
-  "query_translator": { x: 250, y: 20 },
-  "intent_analyzer": { x: 250, y: 150 },
-  "task_decomposer": { x: 100, y: 300 },
-  "data_analysis": { x: 400, y: 300 },
-  "networkx_qa": { x: -50, y: 450 },
-  "kuzu_qa": { x: 250, y: 450 },
-  "graph_judge": { x: 100, y: 600 },
-  "retrieval_synthesizer": { x: 100, y: 750 },
-  "relevance_evaluator": { x: 100, y: 900 },
-  "generator_agent": { x: 250, y: 1050 }
+  "query_translator": { x: 450, y: 20 },
+  "intent_analyzer": { x: 450, y: 150 },
+  "networkx_qa": { x: -150, y: 300 },
+  "task_decomposer": { x: 150, y: 300 },
+  "kuzu_qa": { x: -150, y: 450 },
+  "retrieval_synthesizer": { x: 150, y: 450 },
+  "data_analysis": { x: 750, y: 450 },
+  "graph_judge": { x: -150, y: 600 },
+  "relevance_evaluator": { x: 150, y: 600 },
+  "generator_agent": { x: 450, y: 800 }
 };
 
 const staticEdges = [
   { source: "query_translator", target: "intent_analyzer" },
   { source: "intent_analyzer", target: "task_decomposer" },
-  { source: "intent_analyzer", target: "data_analysis" },
   { source: "intent_analyzer", target: "networkx_qa" },
   { source: "intent_analyzer", target: "generator_agent" },
   { source: "task_decomposer", target: "retrieval_synthesizer" },
+  { source: "task_decomposer", target: "data_analysis" },
   { source: "retrieval_synthesizer", target: "relevance_evaluator" },
   { source: "relevance_evaluator", target: "retrieval_synthesizer" },
   { source: "relevance_evaluator", target: "generator_agent" },
@@ -163,14 +163,27 @@ export default function TraceGraph({ nodesState }: TraceGraphProps) {
   // Create Edges
   const flowEdges = useMemo<Edge[]>(() => {
     const nodesMap = new Map(nodesState.map(n => [n.id, n]));
-    
+
     return staticEdges.map((edge) => {
       const sourceNode = nodesMap.get(edge.source);
       const targetNode = nodesMap.get(edge.target);
-      
-      const isAnimated = sourceNode?.status === "completed" && targetNode?.status === "active";
-      const isCompleted = sourceNode?.status === "completed" && targetNode?.status === "completed";
-      
+
+      let isAnimated = sourceNode?.status === "completed" && targetNode?.status === "active";
+      let isCompleted = sourceNode?.status === "completed" && targetNode?.status === "completed";
+
+      // Prevent the direct 'Intent Analyzer -> Generator Agent' edge from lighting up 
+      // if the workflow actually took the Search or Graph QA paths.
+      if (edge.source === "intent_analyzer" && edge.target === "generator_agent") {
+        const taskDecomposer = nodesMap.get("task_decomposer");
+        const networkxQa = nodesMap.get("networkx_qa");
+        
+        if ((taskDecomposer && taskDecomposer.status !== "idle") || 
+            (networkxQa && networkxQa.status !== "idle")) {
+          isAnimated = false;
+          isCompleted = false;
+        }
+      }
+
       return {
         id: `edge-${edge.source}-${edge.target}`,
         source: edge.source,
