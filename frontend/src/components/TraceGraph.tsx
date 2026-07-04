@@ -113,16 +113,26 @@ const nodeTypes = {
 };
 
 const nodeLayout: Record<string, { x: number; y: number }> = {
-  "query_translator": { x: 450, y: 20 },
-  "intent_analyzer": { x: 450, y: 150 },
-  "networkx_qa": { x: -150, y: 300 },
-  "task_decomposer": { x: 150, y: 300 },
-  "kuzu_qa": { x: -150, y: 450 },
-  "retrieval_synthesizer": { x: 150, y: 450 },
-  "data_analysis": { x: 750, y: 450 },
-  "graph_judge": { x: -150, y: 600 },
-  "relevance_evaluator": { x: 150, y: 600 },
-  "generator_agent": { x: 450, y: 800 }
+  "query_translator": { x: 560, y: 20 },
+  "intent_analyzer": { x: 560, y: 150 },
+  
+  // Lane 1: Vector Search (Far Left)
+  "task_decomposer": { x: 0, y: 300 },
+  "retrieval_synthesizer": { x: 0, y: 450 },
+  "relevance_evaluator": { x: 0, y: 600 },
+  
+  // Lane 2: Data Analysis (Mid Left)
+  "data_analysis": { x: 280, y: 450 },
+  
+  // Lane 3: Chat Spine (Center-Right)
+  // (Query Translator, Intent Analyzer, and Generator Agent share this x=560 lane)
+  
+  // Lane 4: Graph Search (Far Right)
+  "networkx_qa": { x: 840, y: 300 },
+  "kuzu_qa": { x: 840, y: 450 },
+  "graph_judge": { x: 840, y: 600 },
+
+  "generator_agent": { x: 560, y: 800 }
 };
 
 const staticEdges = [
