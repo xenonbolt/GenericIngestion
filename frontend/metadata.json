@@ -1,0 +1,6 @@
+{
+  "name": "Enterprise Agentic Intelligence Platform",
+  "description": "An enterprise-grade, role-based agentic intelligence platform featuring live agent tracing, role-based knowledge upload approvals, and conversational AI.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
