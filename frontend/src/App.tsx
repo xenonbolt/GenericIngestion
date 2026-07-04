@@ -174,9 +174,6 @@ export default function App() {
                         ...n,
                         status: "active",
                         action: data.action,
-                        tokens: data.metrics?.tokens,
-                        latency: data.metrics?.latency,
-                        cost: data.metrics?.cost,
                       }
                     : n
                 )
@@ -185,21 +182,29 @@ export default function App() {
                 nodeId: data.nodeId,
                 nodeName: data.nodeName,
                 action: data.action,
-                metrics: data.metrics,
               });
 
-              // Increment accumulated
-              setAccumulatedMetrics((prev) => ({
-                tokens: prev.tokens + (data.metrics?.tokens || 0),
-                latency: prev.latency + (data.metrics?.latency || 0),
-                cost: prev.cost + (data.metrics?.cost || 0),
-              }));
             } else if (data.type === "node_completed" && data.nodeId) {
               setNodesState((prev) =>
                 prev.map((n) =>
-                  n.id === data.nodeId ? { ...n, status: "completed" } : n
+                  n.id === data.nodeId ? { 
+                    ...n, 
+                    status: "completed",
+                    tokens: data.metrics?.tokens,
+                    latency: data.metrics?.latency,
+                    cost: data.metrics?.cost
+                  } : n
                 )
               );
+              
+              if (data.metrics) {
+                setActiveNodeDetails((prev) => prev?.nodeId === data.nodeId ? { ...prev, metrics: data.metrics } : prev);
+                setAccumulatedMetrics((prev) => ({
+                  tokens: prev.tokens + (data.metrics.tokens || 0),
+                  latency: prev.latency + (data.metrics.latency || 0),
+                  cost: prev.cost + (data.metrics.cost || 0),
+                }));
+              }
             } else if (data.type === "trace_completed") {
               setTraceStatus("completed");
               // Cap at exact total cost provided by backend if available

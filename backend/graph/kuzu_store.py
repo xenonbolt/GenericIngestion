@@ -28,8 +28,8 @@ class KuzuGraphStore:
         if attributes is None:
             attributes = {}
         
-        attrs_json = json.dumps(attributes).replace("'", "''")
-        safe_id = entity_id.replace("'", "''")
+        attrs_json = json.dumps(attributes).replace("'", "\\'")
+        safe_id = entity_id.replace("'", "\\'")
         
         # Merge-like behavior
         query = f"""
@@ -47,10 +47,10 @@ class KuzuGraphStore:
         if attributes is None:
             attributes = {}
             
-        attrs_json = json.dumps(attributes).replace("'", "''")
-        safe_src = source_id.replace("'", "''")
-        safe_tgt = target_id.replace("'", "''")
-        safe_rel = relation_type.replace("'", "''")
+        attrs_json = json.dumps(attributes).replace("'", "\\'")
+        safe_src = source_id.replace("'", "\\'")
+        safe_tgt = target_id.replace("'", "\\'")
+        safe_rel = relation_type.replace("'", "\\'")
         
         # Ensure nodes exist
         self.add_entity(source_id, {})

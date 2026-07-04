@@ -36,6 +36,11 @@ class MongoMemoryManager:
         self._history_cache[session_id] = messages
         return messages
 
+    def delete_session(self, session_id: str):
+        self.short_term.delete_many({"session_id": session_id})
+        if session_id in self._history_cache:
+            del self._history_cache[session_id]
+
     def get_user_sessions(self, user_id: str) -> List[Dict[str, Any]]:
         pipeline = [
             {"$match": {"user_id": user_id}},

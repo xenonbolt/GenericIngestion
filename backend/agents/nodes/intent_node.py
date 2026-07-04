@@ -11,8 +11,8 @@ class IntentAnalyzerNode:
         prompt = f"""Analyze the following user query: '{query_to_analyze}'.
 Which of the following internal capabilities is best suited to answer it?
 1) 'data_analysis': If the query requires quantitative counting, filtering, aggregating, or tabular data analysis (e.g., questions like "how many people", "what is the average", or filtering by demographics like city).
-2) 'graph_search': If it requires finding relationships, paths, connections, or structural links between entities in a network/graph.
-3) 'search': If it requires looking up semantic text in external files, pdfs, or general unstructured data.
+2) 'graph_search': Use ONLY if the query explicitly mentions graphs, networks, shortest paths, or highly complex structural network analysis.
+3) 'search': Use this for ALL general factual questions, information retrieval, or questions about unstructured text, PDFs, and general entities (e.g., "who is the client for X", "what is Y"). This is the default for most knowledge lookup.
 4) 'chat': General conversation.
 
 Output ONLY the category name (e.g. 'data_analysis', 'graph_search', 'search', or 'chat')."""

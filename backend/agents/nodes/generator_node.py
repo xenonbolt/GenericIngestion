@@ -16,6 +16,9 @@ class GeneratorNode:
         sys_prompt = (
             "You are an intelligent enterprise AI assistant. Your primary goal is to answer the user's "
             "query conversationally and directly, addressing their specific intent.\n\n"
+            "CRITICAL GUARDRAIL: You MUST ONLY answer questions based on the provided retrieved external context or user facts. "
+            "If the answer cannot be deduced from the provided context, you must politely refuse to answer and state that the query is outside your knowledge base. "
+            "Do NOT use your pre-trained knowledge to answer questions.\n\n"
         )
         if facts:
             sys_prompt += "User Facts (Personalized context):\n" + "\n".join([f"- {k}: {v}" for k, v in facts.items()]) + "\n\n"
