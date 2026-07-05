@@ -25,14 +25,22 @@ class GraphLibrarianNode:
                 with open(master_metadata_path, "r") as f:
                     master_metadata = json.load(f)
                     
-                # Summarize TOC to fit in context window (e.g. top 100 entries or aggregated by file)
-                entries = []
-                for k, v in list(master_metadata.items())[:100]:
-                    dtype = v.get("type", "unstructured")
+                # Aggregate TOC by file_name to avoid context limits and prevent cutting off files
+                file_groups = {}
+                for k, v in master_metadata.items():
                     fname = v.get("file_name", "Unknown File")
-                    summary = v.get("summary", "")
-                    kw = ", ".join(v.get("keywords", []))
-                    entries.append(f"- ID: {k} | Type: {dtype} | File: {fname} | Keywords: {kw} | Summary: {summary}")
+                    if fname not in file_groups:
+                        file_groups[fname] = {
+                            "type": v.get("type", "unstructured"),
+                            "keywords": set(),
+                            "summary": v.get("summary", "") # Use first summary as base
+                        }
+                    file_groups[fname]["keywords"].update(v.get("keywords", []))
+                    
+                entries = []
+                for fname, data in file_groups.items():
+                    kw = ", ".join(list(data["keywords"])[:20]) # Limit to top 20 keywords per file
+                    entries.append(f"- File: {fname} | Type: {data['type']} | Keywords: {kw} | Base Summary: {data['summary']}")
                 
                 toc_summary = "\n".join(entries)
             except Exception as e:
