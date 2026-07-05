@@ -15,16 +15,25 @@ async def analyze_metadata(file: UploadFile = File(...)):
     mime = file.content_type or "application/octet-stream"
     try:
         from langchain_core.messages import HumanMessage
-        
+        llm_provider = os.getenv("LLM_PROVIDER", "gemini").lower()
         # If it's an image, audio, or video, use multimodal approach
         if "image" in mime or "audio" in mime or "video" in mime:
-            encoded_data = base64.b64encode(content).decode('utf-8')
-            msg = HumanMessage(
-                content=[
-                    {"type": "text", "text": f"Analyze this {mime} file. Provide a JSON response with exactly these keys: 'summary' (a 2-sentence description), 'category' (one word), and 'tags' (a comma-separated string of 3-5 tags). Output only raw JSON."},
-                    {"type": "image_url", "image_url": {"url": f"data:{mime};base64,{encoded_data}"}}
-                ]
-            )
+            if llm_provider == "openai" and ("audio" in mime or "video" in mime):
+                ext = os.path.splitext(file.filename)[1]
+                extracted_text = pipeline._extract_text_from_media_native(content, mime, file.filename, ext)
+                msg = HumanMessage(
+                    content=[
+                        {"type": "text", "text": f"Analyze the following {mime} file content. Provide a JSON response with exactly these keys: 'summary' (a 2-sentence description), 'category' (one word), and 'tags' (a comma-separated string of 3-5 tags). Output only raw JSON.\n\nContent:\n{extracted_text}"}
+                    ]
+                )
+            else:
+                encoded_data = base64.b64encode(content).decode('utf-8')
+                msg = HumanMessage(
+                    content=[
+                        {"type": "text", "text": f"Analyze this {mime} file. Provide a JSON response with exactly these keys: 'summary' (a 2-sentence description), 'category' (one word), and 'tags' (a comma-separated string of 3-5 tags). Output only raw JSON."},
+                        {"type": "image_url", "image_url": {"url": f"data:{mime};base64,{encoded_data}"}}
+                    ]
+                )
         else:
             # For Text, CSV, PDF, we need to extract text first
             extracted_text = ""

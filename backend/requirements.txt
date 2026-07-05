@@ -21,3 +21,5 @@ pypdf==4.2.0
 python-multipart==0.0.9
 langchain-experimental==0.0.62
 kuzu==0.11.3
+moviepy==2.2.1
+openai-whisper==20250625

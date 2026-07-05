@@ -8,6 +8,7 @@ from graph.networkx_store import kg_store
 from graph.kuzu_store import kuzu_store
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_openai import ChatOpenAI
 from langchain_core.messages import HumanMessage
 from pypdf import PdfReader
 from dotenv import load_dotenv
@@ -22,8 +23,13 @@ class DataIngestionPipeline:
         self.text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
         
         # Load multimodal LLM for media extraction if needed
-        model_name = os.getenv("GEMINI_MODEL_NAME", "gemini-1.5-pro-latest")
-        self.llm = ChatGoogleGenerativeAI(model=model_name, temperature=0.2)
+        self.llm_provider = os.getenv("LLM_PROVIDER", "gemini").lower()
+        if self.llm_provider == "openai":
+            model_name = os.getenv("OPENAI_MODEL_NAME", "gpt-4o")
+            self.llm = ChatOpenAI(model=model_name, temperature=0.2)
+        else:
+            model_name = os.getenv("GEMINI_MODEL_NAME", "gemini-1.5-pro-latest")
+            self.llm = ChatGoogleGenerativeAI(model=model_name, temperature=0.2)
         
         # Check strategy
         self.native_media = os.getenv("NATIVE_MEDIA_EXTRACTION", "false").lower() == "true"
@@ -90,10 +96,10 @@ class DataIngestionPipeline:
         text = ""
         try:
             if "video" in mime_type:
-                from moviepy.editor import VideoFileClip
-                video = VideoFileClip(temp_path)
-                audio_path = temp_path + ".wav"
-                video.audio.write_audiofile(audio_path, logger=None)
+                from moviepy import VideoFileClip
+                with VideoFileClip(temp_path) as video:
+                    audio_path = temp_path + ".wav"
+                    video.audio.write_audiofile(audio_path, logger=None)
                 import whisper
                 model = whisper.load_model("base")
                 result = model.transcribe(audio_path)
@@ -105,6 +111,8 @@ class DataIngestionPipeline:
                 result = model.transcribe(temp_path)
                 text = result["text"]
         except Exception as e:
+            import traceback
+            traceback.print_exc()
             text = f"Failed native extraction: {e}"
         finally:
             os.remove(temp_path)
@@ -131,7 +139,9 @@ class DataIngestionPipeline:
             extracted_text = file_content.decode('utf-8', errors='ignore')
         elif "image" in mime_type or "audio" in mime_type or "video" in mime_type:
             ext = os.path.splitext(file_name)[1]
-            if self.native_media and ("audio" in mime_type or "video" in mime_type):
+            if self.llm_provider == "openai" and "image" not in mime_type:
+                extracted_text = self._extract_text_from_media_native(file_content, mime_type, file_name, ext)
+            elif self.native_media and ("audio" in mime_type or "video" in mime_type):
                 extracted_text = self._extract_text_from_media_native(file_content, mime_type, file_name, ext)
             else:
                 extracted_text = self._extract_text_from_media_gemini(file_content, mime_type, file_name)

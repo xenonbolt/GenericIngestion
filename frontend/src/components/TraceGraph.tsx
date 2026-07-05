@@ -115,18 +115,18 @@ const nodeTypes = {
 const nodeLayout: Record<string, { x: number; y: number }> = {
   "query_translator": { x: 560, y: 20 },
   "intent_analyzer": { x: 560, y: 150 },
-  
+
   // Lane 1: Vector Search (Far Left)
   "task_decomposer": { x: 0, y: 300 },
   "retrieval_synthesizer": { x: 0, y: 450 },
   "relevance_evaluator": { x: 0, y: 600 },
-  
+
   // Lane 2: Data Analysis (Mid Left)
   "data_analysis": { x: 280, y: 450 },
-  
+
   // Lane 3: Chat Spine (Center-Right)
   // (Query Translator, Intent Analyzer, and Generator Agent share this x=560 lane)
-  
+
   // Lane 4: Graph Search (Far Right)
   "networkx_qa": { x: 840, y: 300 },
   "kuzu_qa": { x: 840, y: 450 },
@@ -143,7 +143,6 @@ const staticEdges = [
   { source: "task_decomposer", target: "retrieval_synthesizer" },
   { source: "task_decomposer", target: "data_analysis" },
   { source: "retrieval_synthesizer", target: "relevance_evaluator" },
-  { source: "relevance_evaluator", target: "retrieval_synthesizer" },
   { source: "relevance_evaluator", target: "generator_agent" },
   { source: "networkx_qa", target: "kuzu_qa" },
   { source: "kuzu_qa", target: "graph_judge" },
@@ -186,9 +185,9 @@ export default function TraceGraph({ nodesState }: TraceGraphProps) {
       if (edge.source === "intent_analyzer" && edge.target === "generator_agent") {
         const taskDecomposer = nodesMap.get("task_decomposer");
         const networkxQa = nodesMap.get("networkx_qa");
-        
-        if ((taskDecomposer && taskDecomposer.status !== "idle") || 
-            (networkxQa && networkxQa.status !== "idle")) {
+
+        if ((taskDecomposer && taskDecomposer.status !== "idle") ||
+          (networkxQa && networkxQa.status !== "idle")) {
           isAnimated = false;
           isCompleted = false;
         }
