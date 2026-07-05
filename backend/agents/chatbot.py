@@ -28,7 +28,20 @@ class ChatbotAgent:
         llm_provider = os.getenv("LLM_PROVIDER", "google").lower()
         if llm_provider == "openai":
             model_name = os.getenv("OPENAI_MODEL_NAME", "gpt-4o")
-            self.llm = ChatOpenAI(model=model_name, temperature=0.2, callbacks=callbacks)
+            
+            # Setup kwargs for ChatOpenAI, including Headroom proxy if configured
+            llm_kwargs = {
+                "model": model_name,
+                "temperature": 0.2,
+                "callbacks": callbacks
+            }
+            
+            # Route requests through Headroom proxy if configured
+            headroom_proxy = os.getenv("HEADROOM_PROXY")
+            if headroom_proxy:
+                llm_kwargs["base_url"] = headroom_proxy
+                
+            self.llm = ChatOpenAI(**llm_kwargs)
             self.token_manager.model_name = model_name
         else:
             model_name = os.getenv("GEMINI_MODEL_NAME", "gemini-1.5-pro-latest")

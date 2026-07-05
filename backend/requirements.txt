@@ -23,3 +23,4 @@ langchain-experimental==0.0.62
 kuzu==0.11.3
 moviepy==2.2.1
 openai-whisper==20250625
+arize-phoenix==13.18.2
