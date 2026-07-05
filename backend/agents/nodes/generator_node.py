@@ -1,4 +1,6 @@
 import time
+import json
+import os
 from agents.utils import get_metrics
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 from agents.state import AgentState, streamer
@@ -8,6 +10,28 @@ class GeneratorNode:
         self.llm = llm
         self.memory_manager = memory_manager
         self.token_manager = token_manager
+        self.master_metadata_path = os.path.join(os.getcwd(), "data", "master_chunk_metadata.json")
+
+    def _get_indexed_files_summary(self) -> str:
+        """Read the master metadata JSON and return a concise list of indexed files."""
+        try:
+            if not os.path.exists(self.master_metadata_path):
+                return "No files have been ingested yet."
+            with open(self.master_metadata_path, "r") as f:
+                master = json.load(f)
+            if not master:
+                return "No files have been ingested yet."
+            # Aggregate by file_name
+            file_groups = {}
+            for v in master.values():
+                fname = v.get("file_name", "Unknown")
+                ftype = v.get("type", "unstructured")
+                if fname not in file_groups:
+                    file_groups[fname] = ftype
+            lines = [f"- {fname} ({ftype})" for fname, ftype in file_groups.items()]
+            return "\n".join(lines)
+        except Exception as e:
+            return f"Error reading index: {e}"
 
     async def __call__(self, state: AgentState):
         start_time = time.time()
@@ -16,12 +40,16 @@ class GeneratorNode:
         
         # Build System Prompt with Long-Term Memory and Retrieved Context
         facts = self.memory_manager.get_long_term_facts(user_id)
+        indexed_files = self._get_indexed_files_summary()
+        
         sys_prompt = (
             "You are an intelligent enterprise AI assistant. Your primary goal is to answer the user's "
             "query conversationally and directly, addressing their specific intent.\n\n"
-            "CRITICAL GUARDRAIL: You MUST ONLY answer questions based on the provided retrieved external context or user facts. "
+            "CRITICAL GUARDRAIL: You MUST ONLY answer questions based on the provided retrieved external context, "
+            "user facts, or the Indexed File Inventory below. "
             "If the answer cannot be deduced from the provided context, you must politely refuse to answer and state that the query is outside your knowledge base. "
             "Do NOT use your pre-trained knowledge to answer questions.\n\n"
+            f"Indexed File Inventory (all files available in the knowledge base):\n{indexed_files}\n\n"
         )
         if facts:
             sys_prompt += "User Facts (Personalized context):\n" + "\n".join([f"- {k}: {v}" for k, v in facts.items()]) + "\n\n"
@@ -57,7 +85,7 @@ class GeneratorNode:
             elif d["role"] == "user": optimized_msgs.append(HumanMessage(content=d["content"]))
             else: optimized_msgs.append(AIMessage(content=d["content"]))
 
-                
+            
         response = await self.llm.ainvoke(optimized_msgs)
         
         await streamer.emit_node_completed('generator_agent', get_metrics(start_time, locals().get('resp') or locals().get('response') or locals().get('res')))

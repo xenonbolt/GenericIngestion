@@ -67,4 +67,8 @@ async def websocket_endpoint(websocket: WebSocket):
             event = await queue.get()
             await websocket.send_text(event)
     except WebSocketDisconnect:
+        pass
+    except asyncio.CancelledError:
+        pass
+    finally:
         streamer.remove_queue(queue)

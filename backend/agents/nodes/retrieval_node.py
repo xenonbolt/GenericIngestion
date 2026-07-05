@@ -14,11 +14,11 @@ class RetrievalSynthesizerNode:
                 
         tasks = state.get("tasks", [state.get("translated_query", state["messages"][-1].content)])
         combined_context = []
+        attempts = state.get("retrieval_attempts") or 0
         
         for idx, task in enumerate(tasks):
                         
             # Vector Search (Semantic)
-            attempts = state.get("retrieval_attempts") or 0
             offset = attempts * 15
             try:
                 results = pipeline.collection.query(query_texts=[task], n_results=15 + offset)

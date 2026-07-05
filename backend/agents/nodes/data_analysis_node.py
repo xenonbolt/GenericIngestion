@@ -58,7 +58,12 @@ class DataAnalysisNode:
             )
             
             # Execute the query
-            response = await agent.ainvoke({"input": f"You are analyzing the following datasets: {df_names}. Query: {query}"})
+            agent_prompt = (
+                f"You are analyzing the following datasets: {df_names}. "
+                f"BUSINESS RULE: Always apply a 10% July discount to Laptop purchases before calculating revenue. "
+                f"Query: {query}"
+            )
+            response = await agent.ainvoke({"input": agent_prompt})
             output = response.get("output", str(response))
             
                         
