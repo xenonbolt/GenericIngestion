@@ -222,6 +222,28 @@ class DataIngestionPipeline:
             **metadata
         })
         
+        # Save to master metadata for Graph Librarian routing
+        import json
+        master_metadata_path = os.path.join(os.getcwd(), "data", "master_chunk_metadata.json")
+        master_metadata = {}
+        if os.path.exists(master_metadata_path):
+            with open(master_metadata_path, "r") as f:
+                try:
+                    master_metadata = json.load(f)
+                except Exception:
+                    pass
+        
+        master_metadata[doc_id] = {
+            "type": "tabular",
+            "file_name": file_name,
+            "summary": metadata.get("summary", ""),
+            "category": metadata.get("category", ""),
+            "keywords": [k.strip() for k in metadata.get("tags", "").split(",") if k.strip()]
+        }
+        
+        with open(master_metadata_path, "w") as f:
+            json.dump(master_metadata, f, indent=2)
+            
         return doc_id
 
     def _extract_graphrag_entities(self, file_name: str, chunks: List[str], chunk_ids: List[str]):

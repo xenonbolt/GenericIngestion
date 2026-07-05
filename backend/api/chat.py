@@ -25,26 +25,26 @@ async def chat(request: ChatRequest):
     
     from memory.cache_manager import cache_manager
     cached_reply = cache_manager.get_cached_answer(request.message)
+    
     if cached_reply:
+        response_text = cached_reply
         await streamer.broadcast({
             "type": "state_transition",
             "node": "END",
             "message": "Served from Cache"
         })
+    else:
+        response_text = await chatbot.invoke(request.session_id, request.user_id, request.message)
+        cache_manager.set_cached_answer(request.message, response_text)
         await streamer.broadcast({
-            "type": "trace_completed"
+            "type": "state_transition",
+            "node": "END",
+            "message": "Finished processing message"
         })
-        return {"reply": cached_reply}
-    
-    response_text = await chatbot.invoke(request.session_id, request.user_id, request.message)
-    
-    cache_manager.set_cached_answer(request.message, response_text)
-    
-    await streamer.broadcast({
-        "type": "state_transition",
-        "node": "END",
-        "message": "Finished processing message"
-    })
+        
+    # Save the conversation turn to the permanent MongoDB session
+    memory_manager.add_message(request.session_id, request.user_id, "user", request.message)
+    memory_manager.add_message(request.session_id, request.user_id, "assistant", response_text)
     
     await streamer.broadcast({
         "type": "trace_completed"

@@ -1,3 +1,5 @@
+import time
+from agents.utils import get_metrics
 from agents.state import AgentState, streamer
 from ingestion.pipeline import pipeline
 from graph.networkx_store import kg_store
@@ -7,6 +9,7 @@ class RetrievalSynthesizerNode:
         self.llm = llm # Note: LLM not strictly needed here unless we do reranking, but good for consistency
 
     async def __call__(self, state: AgentState):
+        start_time = time.time()
         await streamer.emit_node_active('retrieval_synthesizer', 'Running retrieval...')
                 
         tasks = state.get("tasks", [state.get("translated_query", state["messages"][-1].content)])
@@ -45,6 +48,6 @@ class RetrievalSynthesizerNode:
             
         final_context = "\n".join(combined_context) if len(combined_context) > len(tasks) else "No relevant context found."
         
-        await streamer.emit_node_completed('retrieval_synthesizer', {'tokens': 15, 'latency': 120, 'cost': 0.0001})
+        await streamer.emit_node_completed('retrieval_synthesizer', get_metrics(start_time))
         
         return {"context": final_context, "retrieval_attempts": attempts + 1}

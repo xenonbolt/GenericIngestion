@@ -1,3 +1,5 @@
+import time
+from agents.utils import get_metrics
 import os
 import pandas as pd
 from langchain_experimental.agents import create_pandas_dataframe_agent
@@ -9,8 +11,9 @@ class DataAnalysisNode:
         self.uploads_dir = os.path.join(os.getcwd(), "data", "uploads")
 
     async def __call__(self, state: AgentState):
+        start_time = time.time()
         await streamer.emit_node_active('data_analysis', 'Running data_analysis...')
-        tasks = state.get("tasks", [])
+        tasks = state.get("pandas_tasks", [])
         if tasks:
             query = " ".join(tasks)
         else:
@@ -18,13 +21,13 @@ class DataAnalysisNode:
                 
         # Discover all CSVs
         if not os.path.exists(self.uploads_dir):
-            await streamer.emit_node_completed('data_analysis', {'tokens': 15, 'latency': 120, 'cost': 0.0001})
-            return {"context": "No tabular datasets found on the server."}
+            await streamer.emit_node_completed('data_analysis', get_metrics(start_time, locals().get('resp') or locals().get('response') or locals().get('res')))
+            return {"pandas_context": "No tabular datasets found on the server."}
             
         csv_files = [f for f in os.listdir(self.uploads_dir) if f.endswith(".csv")]
         if not csv_files:
-            await streamer.emit_node_completed('data_analysis', {'tokens': 15, 'latency': 120, 'cost': 0.0001})
-            return {"context": "No tabular datasets found on the server."}
+            await streamer.emit_node_completed('data_analysis', get_metrics(start_time, locals().get('resp') or locals().get('response') or locals().get('res')))
+            return {"pandas_context": "No tabular datasets found on the server."}
             
         # Load CSVs into DataFrames
         dataframes = []
@@ -38,8 +41,8 @@ class DataAnalysisNode:
                 print(f"Failed to load {file}: {e}")
                 
         if not dataframes:
-            await streamer.emit_node_completed('data_analysis', {'tokens': 15, 'latency': 120, 'cost': 0.0001})
-            return {"context": "Failed to load any valid tabular datasets."}
+            await streamer.emit_node_completed('data_analysis', get_metrics(start_time, locals().get('resp') or locals().get('response') or locals().get('res')))
+            return {"pandas_context": "Failed to load any valid tabular datasets."}
             
                 
         # Initialize the LangChain Pandas Agent
@@ -61,10 +64,10 @@ class DataAnalysisNode:
                         
             # Format context so the final generator uses it
             final_context = f"--- Pandas Data Analysis Result ---\n{output}"
-            await streamer.emit_node_completed('data_analysis', {'tokens': 15, 'latency': 120, 'cost': 0.0001})
-            return {"context": final_context, "is_relevant": True}
+            await streamer.emit_node_completed('data_analysis', get_metrics(start_time, locals().get('resp') or locals().get('response') or locals().get('res')))
+            return {"pandas_context": final_context, "is_relevant": True}
             
         except Exception as e:
             print(f"Pandas agent error: {e}")
-            await streamer.emit_node_completed('data_analysis', {'tokens': 15, 'latency': 120, 'cost': 0.0001})
-            return {"context": f"Failed to perform tabular data analysis. Error: {str(e)}"}
+            await streamer.emit_node_completed('data_analysis', get_metrics(start_time, locals().get('resp') or locals().get('response') or locals().get('res')))
+            return {"pandas_context": f"Failed to perform tabular data analysis. Error: {str(e)}"}

@@ -1,3 +1,5 @@
+import time
+from agents.utils import get_metrics
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 from agents.state import AgentState, streamer
 
@@ -8,6 +10,7 @@ class GeneratorNode:
         self.token_manager = token_manager
 
     async def __call__(self, state: AgentState):
+        start_time = time.time()
         await streamer.emit_node_active('generator_agent', 'Running generator...')
         user_id = state.get("user_id", "default_user")
         
@@ -22,6 +25,12 @@ class GeneratorNode:
         )
         if facts:
             sys_prompt += "User Facts (Personalized context):\n" + "\n".join([f"- {k}: {v}" for k, v in facts.items()]) + "\n\n"
+            
+        if state.get("pandas_context"):
+            sys_prompt += (
+                f"Retrieved Tabular Data Context:\n"
+                f"{state['pandas_context']}\n\n"
+            )
             
         if state.get("context"):
             sys_prompt += (
@@ -51,10 +60,5 @@ class GeneratorNode:
                 
         response = await self.llm.ainvoke(optimized_msgs)
         
-        # Save to short term memory
-        if isinstance(state["messages"][-1], HumanMessage):
-            self.memory_manager.add_message(state["session_id"], user_id, "user", state["messages"][-1].content)
-        self.memory_manager.add_message(state["session_id"], user_id, "assistant", response.content)
-        
-        await streamer.emit_node_completed('generator_agent', {'tokens': 15, 'latency': 120, 'cost': 0.0001})
+        await streamer.emit_node_completed('generator_agent', get_metrics(start_time, locals().get('resp') or locals().get('response') or locals().get('res')))
         return {"messages": [response]}

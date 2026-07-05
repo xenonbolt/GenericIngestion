@@ -28,11 +28,8 @@ import {
 const initialNodes: TraceNode[] = [
   { id: "query_translator", label: "Query Translator", status: "idle" },
   { id: "intent_analyzer", label: "Intent Analyzer", status: "idle" },
-  { id: "task_decomposer", label: "Task Decomposer", status: "idle" },
+  { id: "graph_librarian", label: "Graph Librarian Router", status: "idle" },
   { id: "data_analysis", label: "Pandas Data Agent", status: "idle" },
-  { id: "networkx_qa", label: "NetworkX Programmatic QA", status: "idle" },
-  { id: "kuzu_qa", label: "Kùzu Cypher Graph QA", status: "idle" },
-  { id: "graph_judge", label: "Graph Evaluation Judge", status: "idle" },
   { id: "retrieval_synthesizer", label: "Vector Retrieval", status: "idle" },
   { id: "relevance_evaluator", label: "Relevance Evaluator", status: "idle" },
   { id: "generator_agent", label: "Final Response Generator", status: "idle" },

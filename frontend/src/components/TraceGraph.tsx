@@ -113,41 +113,30 @@ const nodeTypes = {
 };
 
 const nodeLayout: Record<string, { x: number; y: number }> = {
-  "query_translator": { x: 560, y: 20 },
-  "intent_analyzer": { x: 560, y: 150 },
+  "query_translator": { x: 400, y: 20 },
+  "intent_analyzer": { x: 400, y: 120 },
+  "graph_librarian": { x: 400, y: 240 },
 
-  // Lane 1: Vector Search (Far Left)
-  "task_decomposer": { x: 0, y: 300 },
-  "retrieval_synthesizer": { x: 0, y: 450 },
-  "relevance_evaluator": { x: 0, y: 600 },
+  // Parallel execution branches
+  "data_analysis": { x: 200, y: 380 },
+  "retrieval_synthesizer": { x: 600, y: 380 },
 
-  // Lane 2: Data Analysis (Mid Left)
-  "data_analysis": { x: 280, y: 450 },
-
-  // Lane 3: Chat Spine (Center-Right)
-  // (Query Translator, Intent Analyzer, and Generator Agent share this x=560 lane)
-
-  // Lane 4: Graph Search (Far Right)
-  "networkx_qa": { x: 840, y: 300 },
-  "kuzu_qa": { x: 840, y: 450 },
-  "graph_judge": { x: 840, y: 600 },
-
-  "generator_agent": { x: 560, y: 800 }
+  // Convergence
+  "relevance_evaluator": { x: 400, y: 520 },
+  "generator_agent": { x: 400, y: 680 }
 };
 
 const staticEdges = [
   { source: "query_translator", target: "intent_analyzer" },
-  { source: "intent_analyzer", target: "task_decomposer" },
-  { source: "intent_analyzer", target: "networkx_qa" },
+  { source: "intent_analyzer", target: "graph_librarian" },
   { source: "intent_analyzer", target: "generator_agent" },
-  { source: "task_decomposer", target: "retrieval_synthesizer" },
-  { source: "task_decomposer", target: "data_analysis" },
+  { source: "graph_librarian", target: "data_analysis" },
+  { source: "graph_librarian", target: "retrieval_synthesizer" },
+  { source: "data_analysis", target: "retrieval_synthesizer" }, // Logical sequential chain
+  { source: "data_analysis", target: "relevance_evaluator" },
   { source: "retrieval_synthesizer", target: "relevance_evaluator" },
+  { source: "relevance_evaluator", target: "retrieval_synthesizer" },
   { source: "relevance_evaluator", target: "generator_agent" },
-  { source: "networkx_qa", target: "kuzu_qa" },
-  { source: "kuzu_qa", target: "graph_judge" },
-  { source: "graph_judge", target: "generator_agent" },
-  { source: "data_analysis", target: "generator_agent" },
 ];
 
 export default function TraceGraph({ nodesState }: TraceGraphProps) {

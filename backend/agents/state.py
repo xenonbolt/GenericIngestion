@@ -41,7 +41,11 @@ class AgentState(TypedDict):
     translated_query: str
     intent: str
     tasks: list[str]
+    pandas_tasks: list[str]
+    use_vector: bool
+    use_pandas: bool
     context: str
+    pandas_context: str
     networkx_answer: str
     kuzu_answer: str
     is_relevant: bool

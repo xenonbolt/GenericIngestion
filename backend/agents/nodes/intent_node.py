@@ -1,3 +1,5 @@
+import time
+from agents.utils import get_metrics
 from langchain_core.messages import HumanMessage
 from agents.state import AgentState, streamer
 
@@ -6,6 +8,7 @@ class IntentAnalyzerNode:
         self.llm = llm
 
     async def __call__(self, state: AgentState):
+        start_time = time.time()
         await streamer.emit_node_active('intent_analyzer', 'Running intent...')
         query_to_analyze = state.get("translated_query", state["messages"][-1].content)
         prompt = f"""Analyze the following user query: '{query_to_analyze}'.
@@ -28,5 +31,5 @@ Output ONLY the category name (e.g. 'data_analysis', 'graph_search', 'search', o
         else:
             intent = "chat"
         
-        await streamer.emit_node_completed('intent_analyzer', {'tokens': 15, 'latency': 120, 'cost': 0.0001})
+        await streamer.emit_node_completed('intent_analyzer', get_metrics(start_time, locals().get('resp') or locals().get('response') or locals().get('res')))
         return {"intent": intent}

@@ -10,14 +10,11 @@ from memory.token_manager import TokenManager
 from agents.state import AgentState
 from agents.nodes.translator_node import QueryTranslatorNode
 from agents.nodes.intent_node import IntentAnalyzerNode
-from agents.nodes.decomposer_node import TaskDecomposerNode
 from agents.nodes.retrieval_node import RetrievalSynthesizerNode
 from agents.nodes.evaluator_node import RelevanceEvaluatorNode
 from agents.nodes.generator_node import GeneratorNode
 from agents.nodes.data_analysis_node import DataAnalysisNode
-from agents.nodes.networkx_qa_node import NetworkXQANode
-from agents.nodes.kuzu_qa_node import KuzuQANode
-from agents.nodes.graph_judge_node import GraphJudgeNode
+from agents.nodes.librarian_node import GraphLibrarianNode
 
 class ChatbotAgent:
     def __init__(self, memory_manager: MongoMemoryManager, token_manager: TokenManager):
@@ -43,7 +40,7 @@ class ChatbotAgent:
         # Instantiate Node Classes
         translator = QueryTranslatorNode(self.llm)
         intent = IntentAnalyzerNode(self.llm)
-        decomposer = TaskDecomposerNode(self.llm)
+        librarian = GraphLibrarianNode(self.llm)
         retrieval = RetrievalSynthesizerNode(self.llm)
         evaluator = RelevanceEvaluatorNode(self.llm)
         data_analysis = DataAnalysisNode(self.llm)
@@ -55,13 +52,10 @@ class ChatbotAgent:
         # Add Nodes
         workflow.add_node("query_translator", translator)
         workflow.add_node("intent_analyzer", intent)
-        workflow.add_node("task_decomposer", decomposer)
+        workflow.add_node("graph_librarian", librarian)
         workflow.add_node("retrieval_synthesizer", retrieval)
         workflow.add_node("relevance_evaluator", evaluator)
         workflow.add_node("data_analysis", data_analysis)
-        workflow.add_node("networkx_qa", nx_qa)
-        workflow.add_node("kuzu_qa", kuzu_qa)
-        workflow.add_node("graph_judge", graph_judge)
         workflow.add_node("generator_agent", generator)
         
         # Define Edges
@@ -72,28 +66,42 @@ class ChatbotAgent:
             "intent_analyzer",
             lambda state: state.get("intent", "chat"),
             {
-                "search": "task_decomposer",
-                "data_analysis": "task_decomposer",
-                "graph_search": "networkx_qa",
+                "search": "graph_librarian",
+                "data_analysis": "graph_librarian",
+                "graph_search": "graph_librarian",
                 "chat": "generator_agent"
             }
         )
         
-        workflow.add_edge("data_analysis", "generator_agent")
-        
-        # Sequential dual graph retrieval
-        workflow.add_edge("networkx_qa", "kuzu_qa")
-        workflow.add_edge("kuzu_qa", "graph_judge")
-        workflow.add_edge("graph_judge", "generator_agent")
-        
+        # Sequential context gathering pipeline defined by the Librarian
+        def route_from_librarian(state):
+            if state.get("use_pandas"): return "data_analysis"
+            if state.get("use_vector"): return "retrieval_synthesizer"
+            return "relevance_evaluator"
+            
         workflow.add_conditional_edges(
-            "task_decomposer",
-            lambda state: state.get("intent"),
+            "graph_librarian",
+            route_from_librarian,
             {
-                "search": "retrieval_synthesizer",
-                "data_analysis": "data_analysis"
+                "data_analysis": "data_analysis",
+                "retrieval_synthesizer": "retrieval_synthesizer",
+                "relevance_evaluator": "relevance_evaluator"
             }
         )
+        
+        def route_from_data_analysis(state):
+            if state.get("use_vector"): return "retrieval_synthesizer"
+            return "relevance_evaluator"
+            
+        workflow.add_conditional_edges(
+            "data_analysis",
+            route_from_data_analysis,
+            {
+                "retrieval_synthesizer": "retrieval_synthesizer",
+                "relevance_evaluator": "relevance_evaluator"
+            }
+        )
+        
         workflow.add_edge("retrieval_synthesizer", "relevance_evaluator")
         
         # Conditional routing from relevance
@@ -129,7 +137,11 @@ class ChatbotAgent:
             "translated_query": "",
             "intent": "", 
             "tasks": [],
+            "pandas_tasks": [],
+            "use_vector": False,
+            "use_pandas": False,
             "context": "", 
+            "pandas_context": "",
             "networkx_answer": "",
             "kuzu_answer": "",
             "is_relevant": False
