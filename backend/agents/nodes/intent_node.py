@@ -5,9 +5,10 @@ from langchain_core.messages import HumanMessage
 from agents.state import AgentState, streamer
 
 class IntentAnalyzerNode:
-    def __init__(self, llm, memory_manager=None):
+    def __init__(self, llm, vector_memory_manager=None, mongo_memory_manager=None):
         self.llm = llm
-        self.memory_manager = memory_manager
+        self.vector_memory = vector_memory_manager
+        self.mongo_memory = mongo_memory_manager
 
     async def __call__(self, state: AgentState):
         start_time = time.time()
@@ -22,18 +23,25 @@ class IntentAnalyzerNode:
 - 'search': General factual questions about unstructured text or knowledge base lookup.
 - 'chat': General conversation, greetings, OR personal statements about the user themselves (e.g. "My name is...", "I live in...", "I like...").
 
-2. Extract any personal facts the user shares about themselves as key-value pairs (e.g. name, location, preferences). If none, return an empty object.
+2. Extract any memory actions the user implies about themselves. The user might state new facts (ADD), update existing facts (UPDATE), or ask you to forget something (DELETE).
+- "I moved to NY" -> ADD "User moved to NY" or UPDATE if they previously stated a location.
+- "Forget my favorite color" -> DELETE "User's favorite color is ..."
 
 Output ONLY valid JSON in this exact format:
 {{
     "intent": "chat",
-    "facts": {{"name": "Almighty", "city": "Bangalore"}}
-}}"""
+    "memory_actions": [
+        {{"action": "ADD", "memory": "User's name is Almighty"}},
+        {{"action": "UPDATE", "old_memory": "User lives in Kolkata", "new_memory": "User lives in Bangalore"}},
+        {{"action": "DELETE", "memory": "User's favorite color is blue"}}
+    ]
+}}
+If no memory operations are needed, return an empty array for memory_actions.
+"""
         
         resp = await self.llm.ainvoke([HumanMessage(content=prompt)])
         
         response_text = resp.content.strip()
-        # Clean markdown code blocks if the LLM adds them
         if response_text.startswith("```json"):
             response_text = response_text[7:]
         if response_text.startswith("```"):
@@ -44,17 +52,21 @@ Output ONLY valid JSON in this exact format:
         try:
             parsed = json.loads(response_text)
             intent = parsed.get("intent", "chat").lower()
-            facts = parsed.get("facts", {})
+            actions = parsed.get("memory_actions", [])
             
-            # Save extracted facts to Long Term Memory
-            if self.memory_manager and facts and isinstance(facts, dict):
+            # Execute Memory Actions using VectorMemoryManager
+            if self.vector_memory and actions and isinstance(actions, list):
                 user_id = state.get("user_id")
-                for key, value in facts.items():
-                    self.memory_manager.save_long_term_fact(user_id, key, value)
-                    print(f"[Memory] Saved fact for {user_id}: {key} = {value}")
+                for act in actions:
+                    action_type = act.get("action")
+                    if action_type == "ADD" and act.get("memory"):
+                        self.vector_memory.add_memory(user_id, act["memory"])
+                    elif action_type == "DELETE" and act.get("memory"):
+                        self.vector_memory.delete_memory(user_id, act["memory"])
+                    elif action_type == "UPDATE" and act.get("old_memory") and act.get("new_memory"):
+                        self.vector_memory.update_memory(user_id, act["old_memory"], act["new_memory"])
                     
         except json.JSONDecodeError:
-            # Fallback if LLM didn't return JSON
             print(f"[Intent Error] Failed to parse JSON: {response_text}")
             if "data_analysis" in response_text.lower():
                 intent = "data_analysis"
@@ -65,7 +77,6 @@ Output ONLY valid JSON in this exact format:
             else:
                 intent = "chat"
                 
-        # Fallback for weird intent strings
         valid_intents = ["data_analysis", "graph_search", "search", "chat"]
         if intent not in valid_intents:
             intent = "chat"

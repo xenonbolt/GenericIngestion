@@ -6,9 +6,10 @@ from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 from agents.state import AgentState, streamer
 
 class GeneratorNode:
-    def __init__(self, llm, memory_manager, token_manager):
+    def __init__(self, llm, mongo_memory_manager, token_manager, vector_memory_manager=None):
         self.llm = llm
-        self.memory_manager = memory_manager
+        self.mongo_memory = mongo_memory_manager
+        self.vector_memory = vector_memory_manager
         self.token_manager = token_manager
         self.master_metadata_path = os.path.join(os.getcwd(), "data", "master_chunk_metadata.json")
 
@@ -39,7 +40,11 @@ class GeneratorNode:
         user_id = state.get("user_id", "default_user")
         
         # Build System Prompt with Long-Term Memory and Retrieved Context
-        facts = self.memory_manager.get_long_term_facts(user_id)
+        query = state.get("translated_query", state["messages"][-1].content)
+        facts = []
+        if self.vector_memory:
+            facts = self.vector_memory.search_memory(user_id, query, top_k=5)
+            
         indexed_files = self._get_indexed_files_summary()
         
         sys_prompt = (
@@ -52,7 +57,7 @@ class GeneratorNode:
             f"Indexed File Inventory (all files available in the knowledge base):\n{indexed_files}\n\n"
         )
         if facts:
-            sys_prompt += "User Facts (Personalized context):\n" + "\n".join([f"- {k}: {v}" for k, v in facts.items()]) + "\n\n"
+            sys_prompt += "User Facts (Relevant personalized context):\n" + "\n".join([f"- {f}" for f in facts]) + "\n\n"
             
         if state.get("pandas_context"):
             sys_prompt += (

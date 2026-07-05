@@ -5,6 +5,7 @@ from langchain_core.messages import HumanMessage, AIMessage
 from langgraph.graph import StateGraph, START, END
 
 from memory.mongo_memory import MongoMemoryManager
+from memory.vector_memory import VectorMemoryManager
 from memory.token_manager import TokenManager
 
 from agents.state import AgentState
@@ -19,6 +20,7 @@ from agents.nodes.librarian_node import GraphLibrarianNode
 class ChatbotAgent:
     def __init__(self, memory_manager: MongoMemoryManager, token_manager: TokenManager):
         self.memory_manager = memory_manager
+        self.vector_memory_manager = VectorMemoryManager()
         self.token_manager = token_manager
         from monitoring.observability import obs_manager
         callbacks = [obs_manager.langfuse_handler] if obs_manager.langfuse_handler else []
@@ -39,12 +41,12 @@ class ChatbotAgent:
         
         # Instantiate Node Classes
         translator = QueryTranslatorNode(self.llm)
-        intent = IntentAnalyzerNode(self.llm, self.memory_manager)
+        intent = IntentAnalyzerNode(self.llm, self.vector_memory_manager, self.memory_manager)
         librarian = GraphLibrarianNode(self.llm)
         retrieval = RetrievalSynthesizerNode(self.llm)
         evaluator = RelevanceEvaluatorNode(self.llm)
         data_analysis = DataAnalysisNode(self.llm)
-        generator = GeneratorNode(self.llm, self.memory_manager, self.token_manager)
+        generator = GeneratorNode(self.llm, self.memory_manager, self.token_manager, self.vector_memory_manager)
         
         # Add Nodes
         workflow.add_node("query_translator", translator)
