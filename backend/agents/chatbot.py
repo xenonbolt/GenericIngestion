@@ -44,9 +44,6 @@ class ChatbotAgent:
         retrieval = RetrievalSynthesizerNode(self.llm)
         evaluator = RelevanceEvaluatorNode(self.llm)
         data_analysis = DataAnalysisNode(self.llm)
-        nx_qa = NetworkXQANode(self.llm)
-        kuzu_qa = KuzuQANode(self.llm)
-        graph_judge = GraphJudgeNode(self.llm)
         generator = GeneratorNode(self.llm, self.memory_manager, self.token_manager)
         
         # Add Nodes
