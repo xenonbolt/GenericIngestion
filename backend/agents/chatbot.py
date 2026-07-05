@@ -39,7 +39,7 @@ class ChatbotAgent:
         
         # Instantiate Node Classes
         translator = QueryTranslatorNode(self.llm)
-        intent = IntentAnalyzerNode(self.llm)
+        intent = IntentAnalyzerNode(self.llm, self.memory_manager)
         librarian = GraphLibrarianNode(self.llm)
         retrieval = RetrievalSynthesizerNode(self.llm)
         evaluator = RelevanceEvaluatorNode(self.llm)
