@@ -32,6 +32,7 @@ from api.auth import router as auth_router
 from api.admin import router as admin_router
 from api.chat import router as chat_router
 from api.upload import router as upload_router
+from api.glpi import router as glpi_router
 
 app = FastAPI(title="Enterprise Agentic AI Platform")
 
@@ -48,6 +49,7 @@ app.include_router(auth_router)
 app.include_router(admin_router)
 app.include_router(chat_router)
 app.include_router(upload_router)
+app.include_router(glpi_router)
 
 @app.get("/")
 def read_root():

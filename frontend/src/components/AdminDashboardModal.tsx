@@ -1,5 +1,8 @@
 import { useState, useEffect } from "react";
-import { X, Check, Ban, ScrollText, ThumbsUp, Trash2, ShieldCheck, Search, Activity } from "lucide-react";
+import { 
+  X, Check, Ban, ScrollText, ThumbsUp, Trash2, ShieldCheck, 
+  Search, Activity, Database, RefreshCw, Server, AlertCircle, Settings
+} from "lucide-react";
 import { ApprovalItem, AuditLog } from "../types";
 
 interface AdminDashboardModalProps {
@@ -13,19 +16,36 @@ export default function AdminDashboardModal({
   onClose,
   onActionTriggered,
 }: AdminDashboardModalProps) {
-  const [activeTab, setActiveTab] = useState<"pending" | "users" | "audit">("pending");
+  const [activeTab, setActiveTab] = useState<"pending" | "users" | "audit" | "glpi">("pending");
   const [approvals, setApprovals] = useState<ApprovalItem[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [users, setUsers] = useState<{username: string, role: string}[]>([]);
   
+  // GLPI integration states
+  const [glpiStatus, setGlpiStatus] = useState<any>(null);
+  const [glpiUrl, setGlpiUrl] = useState("http://localhost:8080/glpi");
+  const [glpiAppToken, setGlpiAppToken] = useState("hackathon-app-token-2026");
+  const [glpiUserToken, setGlpiUserToken] = useState("hackathon-user-token-2026");
+  const [useMock, setUseMock] = useState(true);
+  const [syncing, setSyncing] = useState(false);
+  const [syncSuccessMessage, setSyncSuccessMessage] = useState<string | null>(null);
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-
+  
   const fetchData = async () => {
     setLoading(true);
     setError(null);
     try {
+      if (activeTab === "glpi") {
+        const response = await fetch("/admin/glpi/status");
+        if (!response.ok) throw new Error("Failed to fetch GLPI status.");
+        const data = await response.json();
+        setGlpiStatus(data);
+        return;
+      }
+      
       const endpoint = activeTab === "pending" ? "/admin/approvals" : activeTab === "users" ? "/admin/users" : "/admin/audit-logs";
       const response = await fetch(endpoint);
       if (!response.ok) {
@@ -50,6 +70,8 @@ export default function AdminDashboardModal({
     if (isOpen) {
       fetchData();
     }
+    // Clear notifications on tab switch
+    setSyncSuccessMessage(null);
   }, [isOpen, activeTab]);
 
   if (!isOpen) return null;
@@ -90,13 +112,47 @@ export default function AdminDashboardModal({
     }
   };
 
+  const handleGlpiSync = async () => {
+    setSyncing(true);
+    setError(null);
+    setSyncSuccessMessage(null);
+    try {
+      const response = await fetch("/admin/glpi/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          glpi_url: glpiUrl,
+          app_token: glpiAppToken,
+          user_token: glpiUserToken,
+          use_mock: useMock
+        })
+      });
+      
+      if (!response.ok) {
+        throw new Error("GLPI Integration sync process failed.");
+      }
+      
+      const data = await response.json();
+      setGlpiStatus(data);
+      setSyncSuccessMessage(`Sync Complete! Map registered ${data.computers_synced} Computers, ${data.software_synced} Software, and ${data.tickets_synced} tickets into Knowledge Graphs and ChromaDB.`);
+      onActionTriggered();
+    } catch (err: any) {
+      setError(err.message || "Failed to execute GLPI synchronization.");
+    } finally {
+      setSyncing(false);
+    }
+  };
+
   // Filter logs based on search
   const filteredLogs = auditLogs.filter((log) => {
     const q = searchQuery.toLowerCase();
+    const uId = log.userId || (log as any).user_id || "";
+    const action = log.action || "";
+    const details = log.details || "";
     return (
-      log.userId.toLowerCase().includes(q) ||
-      log.action.toLowerCase().includes(q) ||
-      log.details.toLowerCase().includes(q)
+      uId.toLowerCase().includes(q) ||
+      action.toLowerCase().includes(q) ||
+      details.toLowerCase().includes(q)
     );
   });
 
@@ -115,7 +171,7 @@ export default function AdminDashboardModal({
                 Enterprise Admin Operations Control
               </h3>
               <p className="text-xs text-gray-500 dark:text-zinc-400">
-                Oversee knowledge index approvals and system wide security audits
+                Oversee knowledge index approvals, GLPI integrations, and security audit logs
               </p>
             </div>
           </div>
@@ -151,6 +207,16 @@ export default function AdminDashboardModal({
               User Management
             </button>
             <button
+              onClick={() => setActiveTab("glpi")}
+              className={`py-3.5 text-sm font-semibold border-b-2 transition-all cursor-pointer ${
+                activeTab === "glpi"
+                  ? "border-teal-500 text-teal-600 dark:text-teal-400"
+                  : "border-transparent text-gray-500 dark:text-zinc-400 hover:text-gray-900 dark:hover:text-white"
+              }`}
+            >
+              GLPI ITAM Integration
+            </button>
+            <button
               onClick={() => setActiveTab("audit")}
               className={`py-3.5 text-sm font-semibold border-b-2 transition-all cursor-pointer ${
                 activeTab === "audit"
@@ -179,12 +245,20 @@ export default function AdminDashboardModal({
         {/* Body content */}
         <div className="p-6 overflow-y-auto flex-1 bg-white dark:bg-zinc-900 transition-colors duration-300">
           {error && (
-            <div className="mb-4 p-3 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/50 text-red-600 dark:text-red-400 rounded-lg text-xs font-medium">
-              {error}
+            <div className="mb-4 p-3 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/50 text-red-600 dark:text-red-400 rounded-lg text-xs font-medium flex items-center gap-2">
+              <AlertCircle className="h-4 w-4 shrink-0" />
+              <span>{error}</span>
+            </div>
+          )}
+          
+          {syncSuccessMessage && (
+            <div className="mb-4 p-3 bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-900/50 text-green-600 dark:text-green-400 rounded-lg text-xs font-medium flex items-center gap-2">
+              <Check className="h-4 w-4 shrink-0" />
+              <span>{syncSuccessMessage}</span>
             </div>
           )}
 
-          {loading ? (
+          {loading && !syncing ? (
             <div className="flex flex-col items-center justify-center py-20 gap-3">
               <span className="inline-block animate-spin h-8 w-8 border-3 border-teal-500 border-t-transparent rounded-full" />
               <p className="text-xs text-gray-400 dark:text-zinc-500 font-mono">
@@ -292,6 +366,147 @@ export default function AdminDashboardModal({
                 </tbody>
               </table>
             </div>
+          ) : activeTab === "glpi" ? (
+            /* GLPI ITAM Integration Panel */
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-start font-sans">
+              
+              {/* Left Config Panel */}
+              <div className="md:col-span-6 bg-gray-50 dark:bg-zinc-800/30 border border-gray-100 dark:border-zinc-800/80 p-5 rounded-xl space-y-4">
+                <div className="flex items-center gap-2 text-sm font-bold text-gray-800 dark:text-zinc-200 mb-1 uppercase tracking-wider">
+                  <Settings className="h-4 w-4 text-teal-500" />
+                  <span>Sync Configurations</span>
+                </div>
+                
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-bold text-gray-400 dark:text-zinc-500 uppercase">GLPI REST API Endpoint</label>
+                  <input
+                    type="text"
+                    disabled={useMock}
+                    value={glpiUrl}
+                    onChange={(e) => setGlpiUrl(e.target.value)}
+                    className="w-full bg-white dark:bg-zinc-900 border border-gray-300 dark:border-zinc-700 rounded-lg px-3 py-2 text-xs text-gray-900 dark:text-white outline-none focus:ring-1 focus:ring-teal-500 disabled:opacity-50 disabled:bg-gray-100 dark:disabled:bg-zinc-950"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-bold text-gray-400 dark:text-zinc-500 uppercase">Application App-Token</label>
+                  <input
+                    type="text"
+                    disabled={useMock}
+                    value={glpiAppToken}
+                    onChange={(e) => setGlpiAppToken(e.target.value)}
+                    className="w-full bg-white dark:bg-zinc-900 border border-gray-300 dark:border-zinc-700 rounded-lg px-3 py-2 text-xs text-gray-900 dark:text-white outline-none focus:ring-1 focus:ring-teal-500 disabled:opacity-50 disabled:bg-gray-100 dark:disabled:bg-zinc-950 font-mono"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-bold text-gray-400 dark:text-zinc-500 uppercase">User Security Token</label>
+                  <input
+                    type="password"
+                    disabled={useMock}
+                    value={glpiUserToken}
+                    onChange={(e) => setGlpiUserToken(e.target.value)}
+                    className="w-full bg-white dark:bg-zinc-900 border border-gray-300 dark:border-zinc-700 rounded-lg px-3 py-2 text-xs text-gray-900 dark:text-white outline-none focus:ring-1 focus:ring-teal-500 disabled:opacity-50 disabled:bg-gray-100 dark:disabled:bg-zinc-950 font-mono"
+                  />
+                </div>
+
+                {/* Sandbox Toggle */}
+                <div className="py-2 flex items-center justify-between border-t border-gray-200 dark:border-zinc-800/80 mt-2">
+                  <div>
+                    <span className="text-xs font-semibold text-gray-800 dark:text-zinc-200">Local Sandbox Simulator</span>
+                    <p className="text-[10px] text-gray-400 dark:text-zinc-500">Injects custom ITAM schema for live evaluation</p>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={useMock}
+                    onChange={(e) => setUseMock(e.target.checked)}
+                    className="h-4.5 w-4.5 text-teal-600 rounded bg-gray-100 border-gray-300 focus:ring-teal-500 accent-teal-500 cursor-pointer"
+                  />
+                </div>
+
+                <button
+                  onClick={handleGlpiSync}
+                  disabled={syncing}
+                  className="w-full py-2.5 bg-teal-500 hover:bg-teal-600 disabled:bg-teal-500/50 text-white text-xs font-bold rounded-lg shadow-md shadow-teal-500/10 flex items-center justify-center gap-2 cursor-pointer transition-all uppercase tracking-wider"
+                >
+                  <RefreshCw className={`h-4 w-4 ${syncing ? "animate-spin" : ""}`} />
+                  {syncing ? "Synchronizing Asset Map..." : "Synchronize GLPI Map"}
+                </button>
+              </div>
+
+              {/* Right Telemetry Panel */}
+              <div className="md:col-span-6 bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 p-5 rounded-xl space-y-4 shadow-sm">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-sm font-bold text-gray-800 dark:text-zinc-200 uppercase tracking-wider">
+                    <Database className="h-4 w-4 text-violet-500" />
+                    <span>Sync Status & Telemetry</span>
+                  </div>
+                  {glpiStatus && glpiStatus.status === "success" ? (
+                    <span className="flex items-center gap-1 text-[10px] font-bold text-green-500 bg-green-50 dark:bg-green-950/40 px-2 py-0.5 rounded border border-green-200/50 dark:border-green-900/30">
+                      <Activity className="h-3 w-3 animate-pulse" /> SYNCHRONIZED
+                    </span>
+                  ) : (
+                    <span className="text-[10px] font-bold text-gray-400 bg-gray-50 dark:bg-zinc-800 px-2 py-0.5 rounded">
+                      NOT SYNCED
+                    </span>
+                  )}
+                </div>
+
+                {glpiStatus && glpiStatus.status === "success" ? (
+                  <div className="space-y-4">
+                    
+                    {/* Metrics Grid */}
+                    <div className="grid grid-cols-2 gap-3.5">
+                      
+                      <div className="p-3 bg-gray-50 dark:bg-zinc-800/30 border border-gray-100 dark:border-zinc-800/60 rounded-lg">
+                        <span className="text-[10px] font-bold text-gray-400 dark:text-zinc-500 uppercase tracking-wider">Computers Synced</span>
+                        <div className="text-xl font-black text-gray-900 dark:text-white mt-0.5">{glpiStatus.computers_synced}</div>
+                      </div>
+
+                      <div className="p-3 bg-gray-50 dark:bg-zinc-800/30 border border-gray-100 dark:border-zinc-800/60 rounded-lg">
+                        <span className="text-[10px] font-bold text-gray-400 dark:text-zinc-500 uppercase tracking-wider">Software Registered</span>
+                        <div className="text-xl font-black text-gray-900 dark:text-white mt-0.5">{glpiStatus.software_synced}</div>
+                      </div>
+
+                      <div className="p-3 bg-gray-50 dark:bg-zinc-800/30 border border-gray-100 dark:border-zinc-800/60 rounded-lg">
+                        <span className="text-[10px] font-bold text-gray-400 dark:text-zinc-500 uppercase tracking-wider">Service Tickets Map</span>
+                        <div className="text-xl font-black text-gray-900 dark:text-white mt-0.5">{glpiStatus.tickets_synced}</div>
+                      </div>
+
+                      <div className="p-3 bg-gray-50 dark:bg-zinc-800/30 border border-gray-100 dark:border-zinc-800/60 rounded-lg">
+                        <span className="text-[10px] font-bold text-gray-400 dark:text-zinc-500 uppercase tracking-wider">Graph Relations</span>
+                        <div className="text-xl font-black text-teal-500 mt-0.5">{glpiStatus.relations_synced}</div>
+                      </div>
+
+                    </div>
+
+                    <div className="border-t border-gray-100 dark:border-zinc-800/80 pt-3 space-y-2 text-xs">
+                      <div className="flex justify-between">
+                        <span className="text-gray-400 dark:text-zinc-500">Sync Mode:</span>
+                        <strong className="text-gray-700 dark:text-zinc-300 font-semibold uppercase font-mono tracking-wider">
+                          {glpiStatus.use_mock ? "Mock Sandbox" : "Remote GLPI Instance"}
+                        </strong>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-400 dark:text-zinc-500">Last Sync Time:</span>
+                        <strong className="text-gray-700 dark:text-zinc-300 font-mono">
+                          {new Date(glpiStatus.last_synced_at).toLocaleString()}
+                        </strong>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center py-12 space-y-2">
+                    <Server className="h-10 w-10 text-gray-300 dark:text-zinc-700 mx-auto" />
+                    <h5 className="text-xs font-bold text-gray-500 dark:text-zinc-400 uppercase tracking-wider">No Sync Logs Found</h5>
+                    <p className="text-[11px] text-gray-400 dark:text-zinc-500 max-w-[240px] mx-auto leading-relaxed">
+                      Configure your settings on the left and trigger the sync map to load GLPI nodes into the database.
+                    </p>
+                  </div>
+                )}
+              </div>
+
+            </div>
           ) : (
             /* System Audit Logs View */
             filteredLogs.length === 0 ? (
@@ -314,28 +529,31 @@ export default function AdminDashboardModal({
                   </span>
                 </div>
                 <div className="divide-y divide-gray-100 dark:divide-zinc-800/80 font-mono text-[11px] max-h-[480px] overflow-y-auto">
-                  {filteredLogs.map((log) => (
-                    <div key={log.id} className="p-3 bg-zinc-50/30 dark:bg-zinc-900/30 hover:bg-zinc-50 dark:hover:bg-zinc-800/20 transition-all flex flex-col md:flex-row md:items-center gap-3">
-                      <div className="w-36 text-gray-400 dark:text-zinc-500 shrink-0">
-                        {new Date(log.timestamp).toLocaleString()}
+                  {filteredLogs.map((log) => {
+                    const uId = log.userId || (log as any).user_id || "system";
+                    return (
+                      <div key={log.id} className="p-3 bg-zinc-50/30 dark:bg-zinc-900/30 hover:bg-zinc-50 dark:hover:bg-zinc-800/20 transition-all flex flex-col md:flex-row md:items-center gap-3">
+                        <div className="w-36 text-gray-400 dark:text-zinc-500 shrink-0">
+                          {new Date(log.timestamp).toLocaleString()}
+                        </div>
+                        <div className="w-24 shrink-0 font-bold">
+                          <span className={`px-1.5 py-0.5 rounded text-[9px] uppercase tracking-wide ${
+                            uId === "admin" || uId === "system"
+                              ? "bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-400"
+                              : "bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400"
+                          }`}>
+                            {uId}
+                          </span>
+                        </div>
+                        <div className="w-32 shrink-0 font-bold text-gray-800 dark:text-zinc-200">
+                          {log.action}
+                        </div>
+                        <div className="flex-1 text-gray-600 dark:text-zinc-400">
+                          {log.details}
+                        </div>
                       </div>
-                      <div className="w-24 shrink-0 font-bold">
-                        <span className={`px-1.5 py-0.5 rounded text-[9px] uppercase tracking-wide ${
-                          log.userId === "admin" || log.userId === "system"
-                            ? "bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-400"
-                            : "bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400"
-                        }`}>
-                          {log.userId}
-                        </span>
-                      </div>
-                      <div className="w-32 shrink-0 font-bold text-gray-800 dark:text-zinc-200">
-                        {log.action}
-                      </div>
-                      <div className="flex-1 text-gray-600 dark:text-zinc-400">
-                        {log.details}
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             )
