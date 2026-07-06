@@ -71,7 +71,7 @@ class ChatbotAgent:
         translator = QueryTranslatorNode(self.llm)
         intent = IntentAnalyzerNode(self.llm, self.vector_memory_manager, self.memory_manager)
         librarian = GraphLibrarianNode(self.llm)
-        retrieval = RetrievalSynthesizerNode(self.llm)
+        retrieval = RetrievalSynthesizerNode(self.llm, self.memory_manager)
         evaluator = RelevanceEvaluatorNode(self.llm)
         data_analysis = DataAnalysisNode(self.llm)
         generator = GeneratorNode(self.llm, self.memory_manager, self.token_manager, self.vector_memory_manager)

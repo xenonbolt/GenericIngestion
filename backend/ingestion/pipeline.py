@@ -12,6 +12,8 @@ from langchain_openai import ChatOpenAI
 from langchain_core.messages import HumanMessage
 from pypdf import PdfReader
 from dotenv import load_dotenv
+from memory.mongo_memory import MongoMemoryManager
+import json
 
 load_dotenv()
 
@@ -21,6 +23,7 @@ class DataIngestionPipeline:
         self.chroma_client = chromadb.PersistentClient(path="./chroma_db")
         self.collection = self.chroma_client.get_or_create_collection(name="unstructured_docs")
         self.text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
+        self.mongo_memory = MongoMemoryManager()
         
         # Load multimodal LLM for media extraction if needed
         self.llm_provider = os.getenv("LLM_PROVIDER", "gemini").lower()
@@ -159,19 +162,32 @@ class DataIngestionPipeline:
         else:
             extracted_text = file_content.decode('utf-8', errors='ignore')
 
-        # 2. Chunking & Vector DB Phase
+        # 2. Lazy Embedding Phase (Store raw text in Mongo, don't embed yet)
         if extracted_text.strip():
-            chunks = self.text_splitter.split_text(extracted_text)
-            ids = [f"{doc_id}_chunk_{i}" for i in range(len(chunks))]
-            metadatas = [{**metadata, "file_name": file_name, "chunk_index": i} for i in range(len(chunks))]
-            
-            # ChromaDB handles embeddings natively by default using all-MiniLM-L6-v2, or we can use our LLM embeddings.
-            # We will use Chroma's default for simplicity.
-            self.collection.add(
-                documents=chunks,
-                metadatas=metadatas,
-                ids=ids
-            )
+            print(f"Generating summary and keywords for lazy embedding: {file_name}")
+            prompt = f"""Analyze the following document and provide a concise summary and a list of key topics/keywords.
+Document text (first 5000 chars): {extracted_text[:5000]}
+
+Output ONLY valid JSON:
+{{
+    "summary": "1-2 sentence summary of the document",
+    "keywords": ["keyword1", "keyword2", "keyword3"]
+}}"""
+            try:
+                resp = self.llm.invoke([HumanMessage(content=prompt)])
+                resp_text = resp.content.strip()
+                if resp_text.startswith("```json"): resp_text = resp_text[7:]
+                if resp_text.startswith("```"): resp_text = resp_text[3:]
+                if resp_text.endswith("```"): resp_text = resp_text[:-3]
+                parsed = json.loads(resp_text)
+                summary = parsed.get("summary", "")
+                keywords = parsed.get("keywords", [])
+            except Exception as e:
+                print(f"Failed to generate lazy embedding metadata: {e}")
+                summary = "Failed to generate summary."
+                keywords = []
+                
+            self.mongo_memory.save_raw_document(doc_id, file_name, extracted_text, summary, keywords, metadata)
 
         # 3. Graph Database Linking
         # Add the document as a node in the Knowledge Graph
@@ -189,10 +205,8 @@ class DataIngestionPipeline:
             kuzu_store.add_entity(tag, {"type": "Tag"})
             kuzu_store.add_relationship(file_name, tag, "HAS_TAG")
 
-        # 4. GraphRAG Chunk Entity Extraction
-        enable_graphrag = os.getenv("ENABLE_GRAPHRAG", "false").lower() == "true"
-        if enable_graphrag and extracted_text.strip():
-            self._extract_graphrag_entities(file_name, chunks, ids)
+        # 4. GraphRAG Chunk Entity Extraction is disabled during ingestion in Lazy Embed model.
+        # GraphRAG will be handled dynamically if needed during the embedding phase.
 
         return doc_id
 

@@ -10,6 +10,7 @@ class MongoMemoryManager:
         self.short_term = self.db["short_term_memory"] # Stores conversation turns
         self.long_term = self.db["long_term_memory"]   # Stores user preferences/facts
         self.summaries = self.db["session_summaries"]  # Stores running conversation summaries
+        self.raw_documents = self.db["raw_documents"]  # Stores raw texts, summaries, and keywords for lazy embedding
         
         # In-memory caches to reduce DB load
         self._history_cache = {}
@@ -112,4 +113,38 @@ class MongoMemoryManager:
             {"session_id": session_id},
             {"$set": {"summary": new_summary, "updated_at": datetime.utcnow()}},
             upsert=True
+        )
+
+    # --- Document Management (Lazy Embedding) ---
+
+    def save_raw_document(self, doc_id: str, file_name: str, text: str, summary: str, keywords: List[str], metadata: dict):
+        """Saves a document with its metadata and is_embedded=False."""
+        self.raw_documents.update_one(
+            {"doc_id": doc_id},
+            {"$set": {
+                "file_name": file_name,
+                "text": text,
+                "summary": summary,
+                "keywords": keywords,
+                "metadata": metadata,
+                "is_embedded": False,
+                "created_at": datetime.utcnow()
+            }},
+            upsert=True
+        )
+
+    def get_all_raw_documents(self) -> List[Dict[str, Any]]:
+        """Fetches lightweight summaries and keywords of all documents for pre-retrieval routing."""
+        cursor = self.raw_documents.find({}, {"text": 0}) # Exclude full text to save bandwidth
+        return list(cursor)
+
+    def get_raw_document(self, doc_id: str) -> Dict[str, Any]:
+        """Fetches the full document, including raw text, for embedding."""
+        return self.raw_documents.find_one({"doc_id": doc_id})
+
+    def set_document_embedded(self, doc_id: str):
+        """Marks a document as embedded so it doesn't get embedded again."""
+        self.raw_documents.update_one(
+            {"doc_id": doc_id},
+            {"$set": {"is_embedded": True, "updated_at": datetime.utcnow()}}
         )
