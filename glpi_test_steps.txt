@@ -1,0 +1,46 @@
+================================================================================
+                    GLPI INTEGRATION MAP - MANUAL TEST STEPS
+================================================================================
+
+Follow these steps to verify and demonstrate the GLPI IT asset and service ticket
+integration in your local environment:
+
+STEP 1: LAUNCH THE APPLICATION
+Make sure both the backend FastAPI server and the React frontend Vite server are running.
+- Backend: http://127.0.0.1:8000
+- Frontend: http://localhost:3000
+
+STEP 2: LOGIN TO THE PLATFORM CONTROL PORTAL
+1. Open your browser and navigate to: http://localhost:3000
+2. Enter the credentials:
+   - Username: admin
+   - Password: admin
+3. Click "Sign In".
+
+STEP 3: SYNCHRONIZE GLPI KNOWLEDGE MAP
+1. Click the purple "Admin Dashboard" button in the top header.
+2. Select the "GLPI ITAM Integration" tab.
+3. Check the "Local Sandbox Simulator" checkbox (this avoids needing a live external GLPI server).
+4. Click the "Synchronize GLPI Map" button.
+5. Verify the synchronized counts display as:
+   - Computers Synced: 3
+   - Software Registered: 4
+   - Service Tickets Map: 4
+   - Graph Relations: 17
+
+STEP 4: INSPECT AUDIT LOGS
+1. Click the "System Audit Logs" tab.
+2. Verify that the "GLPI_SYNC_TRIGGERED" event and your "USER_LOGIN" action are listed.
+3. Test the search bar by typing "GLPI" to verify filtering works without any page crashes.
+4. Click "Close Operational Panel".
+
+STEP 5: RUN HYBRID GRAPH & VECTOR BOT QUERIES
+Open the chat window in the main interface and ask the agent the following questions:
+
+- QUERY 1: "Who owns Comp-02 and what software is installed on it?"
+  * Expected Answer: The agent will traverse the KuzuDB/NetworkX knowledge graphs and explain that "Bob" owns the "Comp-02" workstation, which has "Docker Desktop" and "PostgreSQL" installed.
+
+- QUERY 2: "Show me all tickets associated with Comp-01."
+  * Expected Answer: The agent will fetch matching vector documents from ChromaDB and graph nodes to summarize Ticket-101 (Docker bind port failure) and Ticket-102 (VS Code GPG key signature crash) assigned to "Alice".
+
+================================================================================

@@ -1,0 +1,199 @@
+================================================================================
+          GLPI REST API INTEGRATION - LOCAL SETUP & TECHNICAL MANUAL
+================================================================================
+
+This document provides a comprehensive, step-by-step setup guide and technical
+architecture reference for the GLPI REST API Integration. It is designed to
+allow any developer or judge to pull the branch, run it locally, and understand
+exactly how the integration operates under the hood.
+
+---
+
+### SECTION 1: GLPI REST API SPECIFICATION & AUTHENTICATION FLOW
+GLPI (Gestionnaire Libre de Parc Informatique) utilizes a session-based REST API
+to retrieve assets and tickets. Submitting queries requires a two-step sequence:
+
+1. SESSION INITIALIZATION (/initSession)
+   - Method: GET or POST
+   - Endpoint: <GLPI_BASE_URL>/apirest.php/initSession/
+   - Headers Required:
+     * App-Token: A unique identifier configured in GLPI Setup > General > API.
+     * Authorization: Format: "user_token <USER_API_TOKEN>" (generated under
+       the user profile settings).
+   - Response (JSON):
+     {
+       "session_token": "abc123xyz789..."
+     }
+   - Importance: This session token must be cached and passed in all subsequent
+     API calls.
+
+2. ASSET & TICKET QUERIES
+   - Endpoints queried for integration maps:
+     * /Computer: Retrieves system names, OS, CPU, RAM specs, and users_id.
+     * /Software: Retrieves installed software licenses and version specs.
+     * /Ticket: Retrieves helpdesk tickets, descriptions, urgency, status, and
+       affected items.
+     * /User: Retrieves corporate profiles, emails, and roles.
+   - Headers Required for queries:
+     * App-Token: <YOUR_APP_TOKEN>
+     * Session-Token: <YOUR_SESSION_TOKEN> (from initSession)
+
+3. SESSION TERMINATION (/killSession)
+   - Method: GET or POST
+   - Endpoint: <GLPI_BASE_URL>/apirest.php/killSession/
+   - Headers Required: App-Token and Session-Token.
+   - Importance: Destroys the active session token on the GLPI server to free
+     up resources and secure endpoints.
+
+---
+
+### SECTION 2: CODEBASE ARCHITECTURE & CODE CHANGES
+
+Our integration maps GLPI assets to a Hybrid database:
+- Entities & structural relationships -> Knowledge Graphs (NetworkX & KuzuDB).
+- Conversational text details (tickets, comments) -> Vector DB (ChromaDB).
+
+Here is every file created or modified on the branch:
+
+1. backend/utils/glpi_integration_utility.py [NEW]
+   - Purpose: Decoupled client utility class that manages REST session calls and
+     maps raw JSON properties to a generic mapper.
+   - Key Feature: Built-in Sandbox Mock Simulator. If no live GLPI URL is supplied,
+     it falls back to injecting a realistic corporate environment with 3 workstations
+     (Comp-01, Comp-02, Comp-03), 4 software installations (VS Code, Docker, Postgres,
+     Figma), 3 users (alice, bob, charlie), and 4 support tickets (e.g., OOM postgres
+     crash on bob's server).
+   - Decoupling Pattern: Uses callback functions:
+     * add_node_fn(node_id, attributes)
+     * add_edge_fn(source, target, relation_type)
+     * add_vector_doc_fn(doc_id, text, metadata)
+     This makes it extremely easy to copy and paste this utility class to any other
+     application during a hackathon; you simply map the callback parameters to your
+     new project database connectors.
+
+2. backend/ingestion/glpi_sync.py [NEW]
+   - Purpose: Ingestion orchestrator acting as an adapter between the decoupled
+     integration utility and the system databases.
+   - Action: Wires the database callback parameters to:
+     * NetworkX (`kg_store.add_entity()`, `kg_store.add_relationship()`)
+     * KuzuDB (`kuzu_store.add_entity()`, `kuzu_store.add_relationship()`)
+     * ChromaDB (`pipeline.collection.add()`)
+   - Librarian Sync: Automatically updates `master_chunk_metadata.json` with GLPI
+     keywords. This makes the LLM Intent Analyzer and Graph Librarian route user queries
+     (such as "show tickets for bob's workstation") directly to the vector/graph retriever.
+
+3. backend/api/glpi.py [NEW]
+   - Purpose: Declares FastAPI endpoints for dashboard triggers.
+   - Endpoints:
+     * POST `/admin/glpi/sync`: Starts synchronization. Records event audits via
+       `audit_manager.log_action("admin", "GLPI_SYNC_TRIGGERED")`.
+     * GET `/admin/glpi/status`: Checks if `data/glpi_status.json` exists to serve
+       last sync metrics.
+
+4. backend/main.py [MODIFIED]
+   - Action: Registered the GLPI router.
+   - Code: `app.include_router(glpi_router)`
+
+5. frontend/src/components/AdminDashboardModal.tsx [MODIFIED]
+   - Action: Added the "GLPI ITAM Integration" tab panel.
+   - Code: Integrated a settings console (URL, App Token, User Token inputs, Local Sandbox
+     Mode checkbox) and a results widget rendering synced statistics (Computers,
+     Software, Tickets, Relations, and Sync Timestamp) with status indicators.
+
+---
+
+### SECTION 3: STEP-BY-STEP SETUP GUIDE (LOCAL RUN)
+
+Follow these instructions exactly to spin up the application:
+
+PREREQUISITES:
+Ensure you have Node.js (v18+) and Python 3.10+ installed on your computer.
+
+STEP 1: GIT CHECKOUT
+Verify you are on the GLPI integration branch:
+```bash
+git checkout GLPI_Integration
+git status
+```
+
+STEP 2: RUN MONGODB
+Make sure MongoDB is running on localhost (port 27017).
+- Linux: `sudo systemctl start mongod`
+- Windows: Ensure MongoDB Community Server service is running in Windows Services.
+
+STEP 3: SETUP BACKEND SERVER
+Open a terminal in the `./backend` directory and execute:
+```powershell
+# 1. Create a Python virtual environment
+python -m venv venv
+
+# 2. Activate the virtual environment
+# On Windows (PowerShell):
+.\venv\Scripts\Activate.ps1
+# On Windows (Command Prompt):
+.\venv\Scripts\activate.bat
+# On Linux/macOS:
+source venv/bin/activate
+
+# 3. Upgrade pip
+python -m pip install --upgrade pip
+
+# 4. Install dependencies
+# NOTE: We relaxed version constraints on Python 3.13 to prevent compilation errors
+pip install -r requirements.txt
+
+# 5. Start the FastAPI backend server
+uvicorn main:app --reload --port 8000
+```
+Verify the server runs on `http://127.0.0.1:8000`.
+
+STEP 4: SETUP FRONTEND
+Open a second terminal in the `./frontend` directory and execute:
+```bash
+# 1. Install Node packages
+npm install
+
+# 2. Launch Vite Development Server
+npm run dev
+```
+Verify the website launches on `http://localhost:5173`.
+
+STEP 5: RUN SYNCHRONIZATION FROM DASHBOARD
+1. Open `http://localhost:5173` in your browser.
+2. Login with credentials: Username = `admin` / Password = `admin` (or register).
+3. Click "Admin Dashboard" in the top-right action bar.
+4. Click the "GLPI ITAM Integration" tab.
+5. Check "Local Sandbox Simulator" (leaves settings disabled, pulling mock mockups).
+6. Click "Synchronize GLPI Map".
+7. Verify counts update instantly:
+   - Computers Synced: 3
+   - Software Registered: 4
+   - Service Tickets Map: 4
+   - Graph Relations: 17
+8. Go to the "System Audit Logs" tab and verify the sync event is recorded in the audit trail.
+
+STEP 6: CONVERSATIONAL QUERY VERIFICATION
+Open the chat box and test queries to witness Graph + Vector Hybrid Search:
+- Query: "Show me all tickets associated with Comp-01."
+  * Agent Traverse: Intent Analyzer -> Graph Librarian -> Vector/Graph Retrieval -> Generator.
+  * Answer: Summarizes Ticket-101 (Docker bind port failure) and Ticket-102 (VS Code GPG key signature crash) linked to Alice.
+- Query: "Who owns Comp-02 and what software is installed on it?"
+  * Answer: Traverses Graph relation Comp-02 owned by Bob, running Docker Desktop and PostgreSQL.
+
+---
+
+### SECTION 4: JUDGES PITCH SCRIPT (EXPERT PRESENTATION)
+
+Use this script during evaluations:
+"For our enterprise AI assistant pipeline, we engineered a custom **GLPI REST API Integration Map** module.
+
+GLPI is a leading IT Asset Management and Service Desk platform. By mapping its REST structure to our AI assistant, we allow agents to reason over live corporate IT environments.
+
+Here is the engineering highlight: we implemented a **Decoupled Callback Pattern**. The client queries GLPI's `/initSession` authentication protocol to query machines and tickets. The mapper then takes these records and pipes them to database drivers using callback injection, completely separating database schemas from API drivers.
+
+We ingest relationships (Users owning computers, software installed on nodes, tickets reported by engineers) directly into **NetworkX and Kuzu Knowledge Graphs**, while ticket logs are parsed and vectorized into **ChromaDB**. 
+
+When a user asks a complex question like: 'Which workstation has open database crash tickets and who owns it?', our LangGraph assistant runs **Hybrid Search** (vector similarities for crash logs + graph traversals for owners and computers), generating a highly accurate, context-bound solution.
+
+For this hackathon, we built a fully-simulated sandbox environment directly inside the client utility, showing a zero-config, production-grade sync dashboard out-of-the-box."
+================================================================================

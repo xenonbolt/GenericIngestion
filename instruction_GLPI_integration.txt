@@ -1,0 +1,139 @@
+# GLPI REST API Integration Utility: Porting & Setup Guide
+
+This file provides a step-by-step walkthrough on how to port the GLPI integration utility module from this repository into ANY other Python application with minimal dependencies.
+
+---
+
+## 📂 Code Files to Port
+
+To copy this integration to a new application, you only need to copy one single file:
+👉 **[glpi_integration_utility.py](file:///d:/Antigravity-projects/GenericIngestion/backend/utils/glpi_integration_utility.py)** (located at `backend/utils/glpi_integration_utility.py`)
+
+This file is completely decoupled from database models, web frameworks (like FastAPI), or agent managers (like LangGraph). It relies ONLY on standard libraries and `httpx` (for making REST API queries).
+
+---
+
+## 🛠️ Step 1: Install Requirements
+Ensure your new application's environment has `httpx` installed:
+```bash
+pip install httpx
+```
+
+---
+
+## 💻 Step 2: Import and Configure the Client
+Initialize the client in your new codebase. You can toggle between **mock sandbox** mode and **remote server** mode easily:
+
+```python
+from glpi_integration_utility import GLPIClientUtility
+
+# 1. Initialize client (mock sandbox mode is great for local hackathon demos)
+client = GLPIClientUtility(
+    glpi_url="http://your-glpi-instance.com", # Leave blank if using mock mode
+    app_token="YOUR_GLPI_APP_TOKEN",
+    user_token="YOUR_GLPI_USER_TOKEN",
+    use_mock=True # Set to False to test real REST connection
+)
+
+# 2. Open GLPI session
+if client.init_session():
+    try:
+        # 3. Pull Computers, Software, Tickets, and User relationships
+        raw_data = client.fetch_inventory_data()
+    finally:
+        # 4. Close session
+        client.kill_session()
+```
+
+---
+
+## 🔗 Step 3: Map to any Database Stack (Callbacks)
+The `GLPIEntityMapper` uses a decoupled **Dependency Injection Callback** pattern. You do not need NetworkX, ChromaDB, or Neo4j to use it. You simply write small anonymous functions (lambdas or normal helper functions) that link the mapper to whatever database driver your new project uses.
+
+### Example A: Mapping to standard Python `dict` or debug prints
+```python
+from glpi_integration_utility import GLPIEntityMapper
+
+mapper = GLPIEntityMapper(raw_data)
+
+# Define your custom print adapters
+def print_node(node_id, attrs):
+    print(f"Creating Node: {node_id} (Attributes: {attrs})")
+
+def print_edge(source, target, relation_type):
+    print(f"Creating Edge: {source} --[{relation_type}]--> {target}")
+
+def print_doc(doc_id, text, metadata):
+    print(f"Indexing Document {doc_id} into Vector DB: '{text}'")
+
+# Execute mapping
+mapper.sync_to_backends(
+    add_node_fn=print_node,
+    add_edge_fn=print_edge,
+    add_vector_doc_fn=print_doc
+)
+```
+
+### Example B: Porting to a Neo4j Graph + Pinecone Vector setup
+If your new hackathon project uses Neo4j and Pinecone, you can map the data like this:
+
+```python
+from glpi_integration_utility import GLPIEntityMapper
+
+mapper = GLPIEntityMapper(raw_data)
+
+# Callback for Neo4j Node creation
+def neo4j_add_node(node_id, attrs):
+    session.run(
+        "MERGE (e:Entity {id: $id}) SET e += $attrs", 
+        id=node_id, attrs=attrs
+    )
+
+# Callback for Neo4j Relationship creation
+def neo4j_add_edge(source, target, relation):
+    session.run(
+        "MATCH (a:Entity {id: $src}), (b:Entity {id: $tgt}) "
+        "MERGE (a)-[r:RELATION {type: $rel}]->(b)",
+        src=source, tgt=target, rel=relation
+    )
+
+# Callback for Pinecone Document Ingestion
+def pinecone_add_doc(doc_id, text, metadata):
+    vector = embed_model.embed_query(text)
+    pinecone_index.upsert(vectors=[(doc_id, vector, metadata)])
+
+# Run synchronization
+mapper.sync_to_backends(
+    add_node_fn=neo4j_add_node,
+    add_edge_fn=neo4j_add_edge,
+    add_vector_doc_fn=pinecone_add_doc
+)
+```
+
+---
+
+## 🎨 Step 4: Hooking it to a REST Endpoint (e.g. FastAPI / Flask)
+To trigger sync from your frontend dashboard, define a simple endpoint in your backend server:
+
+```python
+from fastapi import APIRouter
+from glpi_integration_utility import GLPIClientUtility, GLPIEntityMapper
+
+router = APIRouter()
+
+@router.post("/api/glpi/sync")
+def sync_inventory():
+    client = GLPIClientUtility(use_mock=True)
+    client.init_session()
+    data = client.fetch_inventory_data()
+    client.kill_session()
+    
+    mapper = GLPIEntityMapper(data)
+    # Pipe data into your database using your custom callbacks
+    results = mapper.sync_to_backends(
+        add_node_fn=my_node_adder,
+        add_edge_fn=my_edge_adder,
+        add_vector_doc_fn=my_vector_adder
+    )
+    return {"status": "success", "metrics": results}
+```
