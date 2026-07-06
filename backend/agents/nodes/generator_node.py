@@ -38,6 +38,7 @@ class GeneratorNode:
         start_time = time.time()
         await streamer.emit_node_active('generator_agent', 'Running generator...')
         user_id = state.get("user_id", "default_user")
+        session_id = state.get("session_id", "default_session")
         
         # Build System Prompt with Long-Term Memory and Retrieved Context
         query = state.get("translated_query", state["messages"][-1].content)
@@ -59,6 +60,10 @@ class GeneratorNode:
         if facts:
             sys_prompt += "User Facts (Relevant personalized context):\n" + "\n".join([f"- {f}" for f in facts]) + "\n\n"
             
+        session_summary = self.mongo_memory.get_session_summary(session_id)
+        if session_summary:
+            sys_prompt += f"Running Conversation Summary (Past context):\n{session_summary}\n\n"
+            
         if state.get("pandas_context"):
             sys_prompt += (
                 f"Retrieved Tabular Data Context:\n"
@@ -76,9 +81,10 @@ class GeneratorNode:
             
         sys_msg = SystemMessage(content=sys_prompt)
         
-        # Token Optimization
+        # Token Optimization (Only include last 3 messages to prevent bloat)
         messages_dicts = [{"role": "system", "content": sys_msg.content}]
-        for msg in state["messages"]:
+        recent_messages = state["messages"][-3:]
+        for msg in recent_messages:
             role = "user" if isinstance(msg, HumanMessage) else "assistant"
             messages_dicts.append({"role": role, "content": msg.content})
             

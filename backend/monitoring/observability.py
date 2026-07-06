@@ -17,7 +17,10 @@ class ObservabilityManager:
 
         self.langfuse_host = os.getenv("LANGFUSE_HOST", "https://us.cloud.langfuse.com")
         self.langfuse_handler = None
-        if self.langfuse_public and self.langfuse_secret:
+        
+        enable_langfuse = os.getenv("ENABLE_LANGFUSE", "true").lower() == "true"
+        
+        if enable_langfuse and self.langfuse_public and self.langfuse_secret:
             try:
                 self.langfuse_handler = CallbackHandler(
                     public_key=self.langfuse_public,

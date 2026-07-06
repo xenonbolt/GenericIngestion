@@ -9,6 +9,7 @@ class MongoMemoryManager:
         self.db = self.client[db_name]
         self.short_term = self.db["short_term_memory"] # Stores conversation turns
         self.long_term = self.db["long_term_memory"]   # Stores user preferences/facts
+        self.summaries = self.db["session_summaries"]  # Stores running conversation summaries
         
         # In-memory caches to reduce DB load
         self._history_cache = {}
@@ -99,3 +100,16 @@ class MongoMemoryManager:
         if "i like" in content_lower:
             likes = content_lower.split("i like")[-1].strip()
             self.save_long_term_fact(user_id, "likes", likes)
+
+    def get_session_summary(self, session_id: str) -> str:
+        """Retrieves the running conversation summary for a given session."""
+        record = self.summaries.find_one({"session_id": session_id})
+        return record.get("summary", "") if record else ""
+
+    def update_session_summary(self, session_id: str, new_summary: str):
+        """Updates the running conversation summary for a given session."""
+        self.summaries.update_one(
+            {"session_id": session_id},
+            {"$set": {"summary": new_summary, "updated_at": datetime.utcnow()}},
+            upsert=True
+        )

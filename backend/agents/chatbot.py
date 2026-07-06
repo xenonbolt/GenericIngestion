@@ -30,6 +30,7 @@ from agents.nodes.evaluator_node import RelevanceEvaluatorNode
 from agents.nodes.generator_node import GeneratorNode
 from agents.nodes.data_analysis_node import DataAnalysisNode
 from agents.nodes.librarian_node import GraphLibrarianNode
+from agents.nodes.summarizer_node import SummarizerNode
 
 class ChatbotAgent:
     def __init__(self, memory_manager: MongoMemoryManager, token_manager: TokenManager):
@@ -74,6 +75,7 @@ class ChatbotAgent:
         evaluator = RelevanceEvaluatorNode(self.llm)
         data_analysis = DataAnalysisNode(self.llm)
         generator = GeneratorNode(self.llm, self.memory_manager, self.token_manager, self.vector_memory_manager)
+        summarizer = SummarizerNode(self.llm, self.memory_manager)
         
         # Add Nodes
         workflow.add_node("query_translator", translator)
@@ -83,6 +85,7 @@ class ChatbotAgent:
         workflow.add_node("relevance_evaluator", evaluator)
         workflow.add_node("data_analysis", data_analysis)
         workflow.add_node("generator_agent", generator)
+        workflow.add_node("summarizer_agent", summarizer)
         
         # Define Edges
         workflow.add_edge(START, "query_translator")
@@ -148,7 +151,8 @@ class ChatbotAgent:
             }
         )
         
-        workflow.add_edge("generator_agent", END)
+        workflow.add_edge("generator_agent", "summarizer_agent")
+        workflow.add_edge("summarizer_agent", END)
         return workflow.compile()
 
     async def invoke(self, session_id: str, user_id: str, human_input: str):
