@@ -44,6 +44,6 @@ Instructions:
             
             self.memory_manager.update_session_summary(session_id, new_summary)
         
-        # Return empty dict because we don't need to update the main state (messages)
-        # We just updated the MongoDB side effect.
-        return {}
+        # Return empty list for messages to satisfy LangGraph's update requirement
+        # without actually changing the state. We just updated the MongoDB side effect.
+        return {"messages": []}
