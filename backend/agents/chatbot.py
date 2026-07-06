@@ -3,6 +3,20 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import HumanMessage, AIMessage
 from langgraph.graph import StateGraph, START, END
+from opentelemetry import trace
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import SimpleSpanProcessor
+from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+from opentelemetry.sdk.resources import Resource
+from openinference.instrumentation.langchain import LangChainInstrumentor
+
+# Initialize standard OpenTelemetry to send traces to Phoenix
+resource = Resource(attributes={"project.name": os.getenv("PHOENIX_PROJECT_NAME", "default")})
+tracer_provider = TracerProvider(resource=resource)
+endpoint = os.getenv("PHOENIX_COLLECTOR_ENDPOINT", "http://localhost:6006") + "/v1/traces"
+tracer_provider.add_span_processor(SimpleSpanProcessor(OTLPSpanExporter(endpoint=endpoint)))
+trace.set_tracer_provider(tracer_provider)
+LangChainInstrumentor().instrument(tracer_provider=tracer_provider)
 
 from memory.mongo_memory import MongoMemoryManager
 from memory.vector_memory import VectorMemoryManager
