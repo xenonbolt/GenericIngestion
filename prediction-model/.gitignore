@@ -1,0 +1,14 @@
+# Virtual Environments
+venv/
+env/
+.venv/
+
+# Machine Learning Models
+models/
+*.joblib
+*.pkl
+
+# Python Cache
+__pycache__/
+*.py[cod]
+*$py.class
