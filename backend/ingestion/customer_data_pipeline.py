@@ -1,6 +1,7 @@
 import os
 import json
 import glob
+import traceback
 from pymongo import MongoClient
 from dotenv import load_dotenv
 from langchain_google_genai import ChatGoogleGenerativeAI
@@ -9,9 +10,75 @@ from pydantic import BaseModel, Field
 
 load_dotenv()
 
-class TicketSentimentOutput(BaseModel):
-    summary: str = Field(description="A short, readable summary of the conversation.")
-    sentiment_score: str = Field(description="The customer's sentiment. Must be one of: Positive, Neutral, Negative, Frustrated")
+class SignalsOutput(BaseModel):
+    sla_breach_count: int = 0
+    ticket_reopen_count: int = 0
+    repeated_issue: bool = False
+    handoff_occurred: bool = False
+    executive_involved: bool = False
+    churn_intent_expressed: bool = False
+    renewal_due_soon: bool = False
+    loss_of_confidence: bool = False
+
+class TicketRiskAnalysisOutput(BaseModel):
+    sentiment: str = Field(description="Strongly Positive | Positive | Neutral | Negative | Strongly Negative")
+    emotion: str = Field(description="Frustrated | Angry | Confused | Disappointed | Anxious | Urgent | Disengaged | Satisfied")
+    complaint_themes: list[str] = Field(description="List of themes like 'SLA breach', 'Repeated issue', etc.")
+    signals: SignalsOutput
+    root_cause_summary: str = Field(description="A concise GenAI executive summary of the root cause of the customer's issues and overall situation")
+
+def calculate_risk_score(signals, sentiment):
+    # Default weights totaling 100
+    weights = {
+        "sentiment_trend": 15,
+        "complaint_severity": 10,
+        "sla_breach": 15,
+        "ticket_reopen": 10,
+        "repeated_issue": 10,
+        "handoff": 5,
+        "executive_involvement": 15,
+        "churn_intent": 10,
+        "renewal_proximity": 10
+    }
+    
+    score = 0
+    if sentiment in ["Negative", "Strongly Negative"]:
+        score += weights["sentiment_trend"]
+    if getattr(signals, "loss_of_confidence", False):
+        score += weights["complaint_severity"]
+    if getattr(signals, "sla_breach_count", 0) > 0:
+        score += weights["sla_breach"]
+    if getattr(signals, "ticket_reopen_count", 0) > 0:
+        score += weights["ticket_reopen"]
+    if getattr(signals, "repeated_issue", False):
+        score += weights["repeated_issue"]
+    if getattr(signals, "handoff_occurred", False):
+        score += weights["handoff"]
+    if getattr(signals, "executive_involved", False):
+        score += weights["executive_involvement"]
+    if getattr(signals, "churn_intent_expressed", False):
+        score += weights["churn_intent"]
+    if getattr(signals, "renewal_due_soon", False):
+        score += weights["renewal_proximity"]
+        
+    risk_level = "Low"
+    if score >= 86:
+        risk_level = "Critical"
+    elif score >= 71:
+        risk_level = "High"
+    elif score >= 41:
+        risk_level = "Medium"
+        
+    return {"score": score, "level": risk_level}
+
+def get_next_best_action(risk_level):
+    actions = {
+        "Low": ["Continue standard support"],
+        "Medium": ["Assign dedicated engineer", "Provide clear ETA"],
+        "High": ["Prioritize ticket", "Assign experienced agent"],
+        "Critical": ["Trigger leadership review", "Service recovery playbook", "Schedule executive business review"]
+    }
+    return actions.get(risk_level, [])
 
 class CustomerDataPipeline:
     def __init__(self):
@@ -34,10 +101,10 @@ class CustomerDataPipeline:
             headroom_proxy = os.getenv("HEADROOM_PROXY")
             if headroom_proxy:
                 llm_kwargs["base_url"] = headroom_proxy
-            self.llm = ChatOpenAI(**llm_kwargs).with_structured_output(TicketSentimentOutput)
+            self.llm = ChatOpenAI(**llm_kwargs).with_structured_output(TicketRiskAnalysisOutput)
         else:
             model_name = os.getenv("GEMINI_MODEL_NAME", "gemini-1.5-pro-latest")
-            self.llm = ChatGoogleGenerativeAI(model=model_name, temperature=0.2).with_structured_output(TicketSentimentOutput)
+            self.llm = ChatGoogleGenerativeAI(model=model_name, temperature=0.2).with_structured_output(TicketRiskAnalysisOutput)
 
     def ingest_dataset(self, dataset_path: str):
         """Main entry point to ingest the customer support dataset from a flat directory structure."""
@@ -110,41 +177,80 @@ class CustomerDataPipeline:
                     
                     # Call LLM
                     try:
-                        prompt_template = f"""You are an expert customer support analyst.
-Your task is to analyze the following customer support conversation and extract a concise summary and the customer's overall sentiment.
+                        prompt_template = f"""You are an advanced Customer Success Risk Analyzer. 
+You will be provided with customer interaction data (tickets, emails, transcripts).
+Analyze the data and extract the appropriate risk signals and summaries to fill the requested schema.
 
-Rules:
-1. Provide a short, readable 1-3 sentence summary of the core issue and how it was handled.
-2. Determine the customer's sentiment. It MUST be exactly one of: "Positive", "Neutral", "Negative", or "Frustrated".
-3. If the conversation is empty, lacks clear sentiment, or you cannot determine it, default the sentiment to "Neutral".
+Guidelines for fields:
+- sentiment: Strongly Positive | Positive | Neutral | Negative | Strongly Negative
+- emotion: Frustrated | Angry | Confused | Disappointed | Anxious | Urgent | Disengaged | Satisfied
+- complaint_themes: Pick from ["SLA breach", "Repeated issue", "Poor resolution", "Product defect", "Billing issue", "Communication gap", "Handoff frustration", "Executive concern", "Renewal concern", "Churn intent"]
+- root_cause_summary: A concise GenAI executive summary of the root cause of the customer's issues and overall situation. YOU MUST PROVIDE THIS. DO NOT LEAVE EMPTY.
 
 Conversation:
 \"\"\"
 {conversation_text}
 \"\"\"
 """
+                        print(f"[INFO] Calling LLM for ticket {ticket_id}...")
                         ai_result = self.llm.invoke(prompt_template)
+                        print(f"[INFO] LLM result type: {type(ai_result)}, value: {ai_result}")
+                        
+                        # Handle both dict and Pydantic model responses
                         if isinstance(ai_result, dict):
-                            summary = ai_result.get("summary", "")
-                            sentiment = ai_result.get("sentiment_score", "Neutral")
+                            sentiment = ai_result.get("sentiment", "") or "Neutral"
+                            emotion = ai_result.get("emotion", "") or "Neutral"
+                            themes = ai_result.get("complaint_themes", None) or []
+                            signals_dict = ai_result.get("signals", {})
+                            root_cause = ai_result.get("root_cause_summary", "") or "No root cause summary generated."
+                            # Build a mock signals object for calculate_risk_score
+                            class _Sig:
+                                def __init__(self, d): self.__dict__.update(d)
+                                def model_dump(self): return self.__dict__
+                            signals = _Sig(signals_dict) if signals_dict else None
                         else:
-                            summary = getattr(ai_result, "summary", "")
-                            sentiment = getattr(ai_result, "sentiment_score", "Neutral")
-                            
+                            sentiment = getattr(ai_result, "sentiment", "") or "Neutral"
+                            emotion = getattr(ai_result, "emotion", "") or "Neutral"
+                            themes = getattr(ai_result, "complaint_themes", None) or []
+                            signals = getattr(ai_result, "signals", None)
+                            root_cause = getattr(ai_result, "root_cause_summary", "") or "No root cause summary generated."
+                        
+                        risk_calc = calculate_risk_score(signals, sentiment)
+                        next_best_action = get_next_best_action(risk_calc["level"])
+                        
                         ticket_data["ai_analysis"] = {
-                            "summary": summary,
-                            "sentiment_score": sentiment
+                            "sentiment": sentiment,
+                            "emotion": emotion,
+                            "complaint_themes": themes,
+                            "signals": signals.model_dump() if signals else {},
+                            "root_cause_summary": root_cause,
+                            "risk_score": risk_calc["score"],
+                            "risk_level": risk_calc["level"],
+                            "next_best_action": next_best_action
                         }
                     except Exception as llm_err:
-                        print(f"LLM extraction failed for {ticket_id}: {llm_err}")
+                        print(f"[ERROR] LLM extraction failed for {ticket_id}: {llm_err}")
+                        traceback.print_exc()
                         ticket_data["ai_analysis"] = {
-                            "summary": "Analysis failed",
-                            "sentiment_score": "Neutral"
+                            "sentiment": "Neutral",
+                            "emotion": "Neutral",
+                            "complaint_themes": [],
+                            "signals": {},
+                            "root_cause_summary": "Analysis failed",
+                            "risk_score": 0,
+                            "risk_level": "Low",
+                            "next_best_action": []
                         }
                 else:
                     ticket_data["ai_analysis"] = {
-                        "summary": "No comments available",
-                        "sentiment_score": "Neutral"
+                        "sentiment": "Neutral",
+                        "emotion": "Neutral",
+                        "complaint_themes": [],
+                        "signals": {},
+                        "root_cause_summary": "No comments available",
+                        "risk_score": 0,
+                        "risk_level": "Low",
+                        "next_best_action": []
                     }
                     
                 # 4. Insert / Upsert Ticket

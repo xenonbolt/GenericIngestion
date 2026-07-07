@@ -23,14 +23,7 @@ from memory.vector_memory import VectorMemoryManager
 from memory.token_manager import TokenManager
 
 from agents.state import AgentState
-from agents.nodes.translator_node import QueryTranslatorNode
-from agents.nodes.intent_node import IntentAnalyzerNode
-from agents.nodes.retrieval_node import RetrievalSynthesizerNode
-from agents.nodes.evaluator_node import RelevanceEvaluatorNode
-from agents.nodes.generator_node import GeneratorNode
-from agents.nodes.data_analysis_node import DataAnalysisNode
-from agents.nodes.librarian_node import GraphLibrarianNode
-from agents.nodes.summarizer_node import SummarizerNode
+
 from agents.nodes.ticket_analysis_node import ticket_analysis_node
 from agents.nodes.transcript_analysis_node import transcript_analysis_node
 from agents.nodes.overall_decision_node import overall_decision_node
@@ -70,104 +63,13 @@ class ChatbotAgent:
     def _build_graph(self):
         workflow = StateGraph(AgentState)
         
-        # Instantiate Node Classes
-        translator = QueryTranslatorNode(self.llm)
-        intent = IntentAnalyzerNode(self.llm, self.vector_memory_manager, self.memory_manager)
-        librarian = GraphLibrarianNode(self.llm)
-        retrieval = RetrievalSynthesizerNode(self.llm, self.memory_manager)
-        evaluator = RelevanceEvaluatorNode(self.llm)
-        data_analysis = DataAnalysisNode(self.llm)
-        generator = GeneratorNode(self.llm, self.memory_manager, self.token_manager, self.vector_memory_manager)
-        summarizer = SummarizerNode(self.llm, self.memory_manager)
-        
         # Add Nodes
-        workflow.add_node("query_translator", translator)
-        workflow.add_node("intent_analyzer", intent)
-        workflow.add_node("graph_librarian", librarian)
-        workflow.add_node("retrieval_synthesizer", retrieval)
-        workflow.add_node("relevance_evaluator", evaluator)
-        workflow.add_node("data_analysis", data_analysis)
-        workflow.add_node("generator_agent", generator)
-        workflow.add_node("summarizer_agent", summarizer)
         workflow.add_node("ticket_analysis_node", ticket_analysis_node)
         workflow.add_node("transcript_analysis_node", transcript_analysis_node)
         workflow.add_node("overall_decision_node", overall_decision_node)
         
         # Define Edges
-        workflow.add_conditional_edges(
-            START,
-            lambda state: "ticket_analysis_node" if state.get("target_customer_id") else "query_translator",
-            {
-                "ticket_analysis_node": "ticket_analysis_node",
-                "query_translator": "query_translator"
-            }
-        )
-        workflow.add_edge("query_translator", "intent_analyzer")
-        
-        workflow.add_conditional_edges(
-            "intent_analyzer",
-            lambda state: state.get("intent", "chat"),
-            {
-                "search": "graph_librarian",
-                "data_analysis": "graph_librarian",
-                "graph_search": "graph_librarian",
-                "chat": "generator_agent"
-            }
-        )
-        
-        # Sequential context gathering pipeline defined by the Librarian
-        def route_from_librarian(state):
-            if state.get("use_pandas"): return "data_analysis"
-            if state.get("use_vector"): return "retrieval_synthesizer"
-            return "relevance_evaluator"
-            
-        workflow.add_conditional_edges(
-            "graph_librarian",
-            route_from_librarian,
-            {
-                "data_analysis": "data_analysis",
-                "retrieval_synthesizer": "retrieval_synthesizer",
-                "relevance_evaluator": "relevance_evaluator"
-            }
-        )
-        
-        def route_from_data_analysis(state):
-            if state.get("use_vector"): return "retrieval_synthesizer"
-            return "relevance_evaluator"
-            
-        workflow.add_conditional_edges(
-            "data_analysis",
-            route_from_data_analysis,
-            {
-                "retrieval_synthesizer": "retrieval_synthesizer",
-                "relevance_evaluator": "relevance_evaluator"
-            }
-        )
-        
-        workflow.add_edge("retrieval_synthesizer", "relevance_evaluator")
-        
-        # Conditional routing from relevance
-        def route_relevance(state):
-            if state.get("is_relevant"):
-                return "generate"
-            elif state.get("retrieval_attempts", 0) < 3:
-                return "retry_retrieval"
-            else:
-                return "generate"
-
-        workflow.add_conditional_edges(
-            "relevance_evaluator",
-            route_relevance,
-            {
-                "generate": "generator_agent",
-                "retry_retrieval": "retrieval_synthesizer"
-            }
-        )
-        
-        workflow.add_edge("generator_agent", "summarizer_agent")
-        workflow.add_edge("summarizer_agent", END)
-        
-        # New edges for customer analysis workflow
+        workflow.add_edge(START, "ticket_analysis_node")
         workflow.add_edge("ticket_analysis_node", "transcript_analysis_node")
         workflow.add_edge("transcript_analysis_node", "overall_decision_node")
         workflow.add_edge("overall_decision_node", END)

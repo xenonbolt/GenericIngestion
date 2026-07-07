@@ -5,7 +5,9 @@ interface AnalysisData {
   summary: string;
   sentiment: string;
   escalation_score: number;
-  reasoning: string;
+  root_cause_analysis: string;
+  complaint_themes?: string[];
+  next_best_action?: string[];
 }
 
 interface CustomerAnalysisPanelProps {
@@ -105,16 +107,50 @@ export default function CustomerAnalysisPanel({ data, loading }: CustomerAnalysi
           </p>
         </div>
 
-        {/* Reasoning Card */}
-        <div className="p-5 rounded-xl border border-red-100 dark:border-red-900/30 bg-red-50/50 dark:bg-red-950/10">
-          <h3 className="text-sm font-bold text-red-800 dark:text-red-400 flex items-center gap-2 mb-3">
-            <Flame className="h-4 w-4" />
-            Risk Reasoning
-          </h3>
-          <p className="text-sm text-red-700/80 dark:text-red-300/80 leading-relaxed">
-            {data.reasoning}
-          </p>
-        </div>
+        {/* Root Cause Analysis Card */}
+        {data.escalation_score > 30 && data.root_cause_analysis && (
+          <div className="p-5 rounded-xl border border-red-100 dark:border-red-900/30 bg-red-50/50 dark:bg-red-950/10">
+            <h3 className="text-sm font-bold text-red-800 dark:text-red-400 flex items-center gap-2 mb-3">
+              <AlertTriangle className="h-4 w-4" />
+              Root Cause Analysis
+            </h3>
+            <p className="text-sm text-red-700/80 dark:text-red-300/80 leading-relaxed">
+              {data.root_cause_analysis}
+            </p>
+          </div>
+        )}
+
+        {/* Complaint Themes & Next Best Action */}
+        {(data.complaint_themes?.length || data.next_best_action?.length) && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {data.complaint_themes && data.complaint_themes.length > 0 && (
+              <div className="p-5 rounded-xl border border-gray-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
+                <h3 className="text-sm font-bold text-gray-800 dark:text-zinc-200 mb-3">Complaint Themes</h3>
+                <div className="flex flex-wrap gap-2">
+                  {data.complaint_themes.map((theme, i) => (
+                    <span key={i} className="px-2.5 py-1 rounded-md text-xs font-medium bg-gray-100 dark:bg-zinc-800 text-gray-700 dark:text-zinc-300">
+                      {theme}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            {data.next_best_action && data.next_best_action.length > 0 && (
+              <div className="p-5 rounded-xl border border-teal-200 dark:border-teal-900/30 bg-teal-50/50 dark:bg-teal-900/10">
+                <h3 className="text-sm font-bold text-teal-800 dark:text-teal-400 mb-3">Next Best Actions</h3>
+                <ul className="space-y-2">
+                  {data.next_best_action.map((action, i) => (
+                    <li key={i} className="text-sm text-teal-700/90 dark:text-teal-300/80 flex items-start gap-2">
+                      <span className="text-teal-500 mt-0.5">•</span>
+                      <span>{action}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        )}
 
       </div>
     </div>

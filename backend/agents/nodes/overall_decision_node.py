@@ -11,7 +11,9 @@ class FinalDecision(BaseModel):
     summary: str = Field(description="A brief 2-3 sentence overall summary of the customer's current standing.")
     sentiment: str = Field(description="Overall Customer Sentiment (e.g., Positive, Neutral, Negative, Frustrated).")
     escalation_score: int = Field(description="Escalation Prediction Score as a percentage (0 to 100).")
-    reasoning: str = Field(description="Brief explanation for the score.")
+    root_cause_analysis: str = Field(description="A detailed analysis of the root causes of the customer's issues based on ticket history.")
+    complaint_themes: list[str] = Field(description="List of top complaint themes extracted from the historical data.", default_factory=list)
+    next_best_action: list[str] = Field(description="Recommended actionable next steps for the CXO or support team.", default_factory=list)
 
 async def overall_decision_node(state: AgentState):
     """Combines ticket analysis and transcript analysis to form a final structured CXO decision."""
