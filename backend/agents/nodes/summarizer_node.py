@@ -46,4 +46,4 @@ Instructions:
         
         # Return empty dict because we don't need to update the main state (messages)
         # We just updated the MongoDB side effect.
-        return {}
+        return {"messages": []}
