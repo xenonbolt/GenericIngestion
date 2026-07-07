@@ -6,6 +6,9 @@ import json
 from ingestion.pipeline import pipeline
 from auth.approval_manager import approval_manager
 from auth.audit_manager import audit_manager
+import zipfile
+import shutil
+from ingestion.customer_data_pipeline import pipeline as customer_pipeline
 
 router = APIRouter()
 
@@ -103,3 +106,30 @@ async def upload_file(
             
         approval_id = approval_manager.add_pending(file_path, file.filename, mime, metadata, user_id)
         return {"status": "pending", "approval_id": approval_id, "message": "Upload submitted for Admin approval."}
+
+@router.post("/upload-customer-dataset")
+async def upload_customer_dataset(file: UploadFile = File(...)):
+    temp_dir = tempfile.mkdtemp()
+    zip_path = os.path.join(temp_dir, file.filename)
+    try:
+        content = await file.read()
+        with open(zip_path, "wb") as f:
+            f.write(content)
+        
+        with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+            zip_ref.extractall(temp_dir)
+            
+        dataset_root = temp_dir
+        # If the zip contains a single parent folder, use that as the root
+        contents = os.listdir(temp_dir)
+        if len(contents) == 1 and os.path.isdir(os.path.join(temp_dir, contents[0])):
+            dataset_root = os.path.join(temp_dir, contents[0])
+            
+        customer_pipeline.ingest_dataset(dataset_root)
+        
+        return {"status": "success", "message": "Customer dataset ingested successfully."}
+    except Exception as e:
+        print("Dataset ingestion error:", e)
+        return {"status": "error", "message": str(e)}
+    finally:
+        shutil.rmtree(temp_dir, ignore_errors=True)

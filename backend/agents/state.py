@@ -50,3 +50,6 @@ class AgentState(TypedDict):
     kuzu_answer: str
     is_relevant: bool
     retrieval_attempts: int
+    target_customer_id: str
+    ticket_analysis: str
+    transcript_analysis: str

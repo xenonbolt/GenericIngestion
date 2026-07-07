@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { User, Message, TraceNode, TraceEvent } from "./types";
 import LoginScreen from "./components/LoginScreen";
-import ChatPanel from "./components/ChatPanel";
+import CustomerAnalysisPanel from "./components/CustomerAnalysisPanel";
 import TraceGraph from "./components/TraceGraph";
 import UploadModal from "./components/UploadModal";
 import AdminDashboardModal from "./components/AdminDashboardModal";
@@ -26,13 +26,9 @@ import {
 } from "lucide-react";
 
 const initialNodes: TraceNode[] = [
-  { id: "query_translator", label: "Query Translator", status: "idle" },
-  { id: "intent_analyzer", label: "Intent Analyzer", status: "idle" },
-  { id: "graph_librarian", label: "Graph Librarian Router", status: "idle" },
-  { id: "data_analysis", label: "Pandas Data Agent", status: "idle" },
-  { id: "retrieval_synthesizer", label: "Vector Retrieval", status: "idle" },
-  { id: "relevance_evaluator", label: "Relevance Evaluator", status: "idle" },
-  { id: "generator_agent", label: "Final Response Generator", status: "idle" },
+  { id: "ticket_analysis_node", label: "Historical Ticket Analysis", status: "idle" },
+  { id: "transcript_analysis_node", label: "External Transcript Analysis", status: "idle" },
+  { id: "overall_decision_node", label: "CXO Decision Engine", status: "idle" },
 ];
 
 export default function App() {
@@ -43,8 +39,8 @@ export default function App() {
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [isAdminOpen, setIsAdminOpen] = useState(false);
 
-  // Chat state
-  const [messages, setMessages] = useState<Message[]>([]);
+  // Analysis state
+  const [analysisData, setAnalysisData] = useState<any>(null);
   const [chatLoading, setChatLoading] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
@@ -259,16 +255,7 @@ export default function App() {
     setAccumulatedMetrics({ tokens: 0, latency: 0, cost: 0 });
     setTraceStatus("running");
     setActiveNodeDetails(null);
-
-    // Append user message
-    const userMsgId = `user-${Date.now()}`;
-    const userMsg: Message = {
-      id: userMsgId,
-      sender: "user",
-      text,
-      timestamp: new Date().toISOString(),
-    };
-    setMessages((prev) => [...prev, userMsg]);
+    setAnalysisData(null);
     setChatLoading(true);
 
     // Trigger trace over WebSockets
@@ -289,36 +276,19 @@ export default function App() {
       });
 
       if (!response.ok) {
-        throw new Error("Chat api request failed.");
+        throw new Error("Analysis api request failed.");
       }
 
       const data = await response.json();
 
-      // Append assistant message once response is returned
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: `assistant-${Date.now()}`,
-          sender: "assistant",
-          text: data.reply,
-          timestamp: new Date().toISOString(),
-          traceResult: {
-            tokens: 1850,
-            latency: 2820,
-            cost: 0.000555,
-          },
-        },
-      ]);
+      try {
+        const parsedData = JSON.parse(data.reply);
+        setAnalysisData(parsedData);
+      } catch (parseError) {
+        console.error("Failed to parse analysis data JSON:", data.reply);
+      }
     } catch (err: any) {
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: `assistant-err-${Date.now()}`,
-          sender: "assistant",
-          text: `**System Connection Halt:**\nFailed to orchestrate server model pipeline. Reason: ${err.message}`,
-          timestamp: new Date().toISOString(),
-        },
-      ]);
+      console.error("System Connection Halt: Failed to orchestrate server model pipeline.", err);
     } finally {
       setChatLoading(false);
     }
@@ -427,30 +397,20 @@ export default function App() {
           user={user}
           isOpen={isSidebarOpen}
           onToggle={() => setIsSidebarOpen(!isSidebarOpen)}
-          currentSessionId={user.sessionId}
-          onSelectSession={loadSessionHistory}
-          onNewChat={handleNewChat}
+          onSelectCustomer={(customerId) => {
+             // Handle selecting customer
+             handleSendMessage(`ANALYZE_CUSTOMER: ${customerId}`);
+          }}
         />
         <main className="flex-1 overflow-y-auto w-full p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
 
-          {/* Left Side: Conversational Panel */}
-          <section className="col-span-1 lg:col-span-5 flex flex-col gap-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-bold tracking-tight text-gray-700 dark:text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
-                <Zap className="h-4 w-4 text-teal-500" />
-                Agentic Chat Console
-              </h3>
-            </div>
-            <ChatPanel
-              messages={messages}
-              onSendMessage={handleSendMessage}
-              loading={chatLoading}
-              user={user}
-            />
+          {/* Left Side: Analysis Panel */}
+          <section className="col-span-1 lg:col-span-8 flex flex-col gap-4">
+            <CustomerAnalysisPanel data={analysisData} loading={chatLoading} />
           </section>
 
           {/* Right Side: Graph Trace Visualization */}
-          <section className="col-span-1 lg:col-span-7 flex flex-col gap-4">
+          <section className="col-span-1 lg:col-span-4 flex flex-col gap-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <h3 className="text-sm font-bold tracking-tight text-gray-700 dark:text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
                 <Workflow className="h-4 w-4 text-violet-500" />

@@ -17,39 +17,23 @@ interface TraceGraphProps {
   nodesState: TraceNode[];
 }
 
-// All nodes that always exist in the graph skeleton (greyed out by default)
+// Only showing the Customer Analysis Dashboard trace nodes
 const ALL_NODES: { id: string; label: string }[] = [
-  { id: "query_translator",      label: "Query Translator" },
-  { id: "intent_analyzer",       label: "Intent Analyzer" },
-  { id: "graph_librarian",       label: "Graph Librarian Router" },
-  { id: "data_analysis",         label: "Pandas Data Agent" },
-  { id: "retrieval_synthesizer", label: "Vector Retrieval" },
-  { id: "relevance_evaluator",   label: "Relevance Evaluator" },
-  { id: "generator_agent",       label: "Final Response Generator" },
+  { id: "ticket_analysis_node", label: "Historical Ticket Analysis" },
+  { id: "transcript_analysis_node", label: "External Transcript Analysis" },
+  { id: "overall_decision_node", label: "CXO Decision Engine" },
 ];
 
-// Static layout — never changes, so the graph never re-fits/glitches
+// Centered vertical layout for the 3 customer nodes, compressed for shorter height
 const nodeLayout: Record<string, { x: number; y: number }> = {
-  "query_translator":      { x: 300, y: 20 },
-  "intent_analyzer":       { x: 300, y: 140 },
-  "graph_librarian":       { x: 300, y: 260 },
-  "data_analysis":         { x: 80,  y: 400 },
-  "retrieval_synthesizer": { x: 520, y: 400 },
-  "relevance_evaluator":   { x: 300, y: 540 },
-  "generator_agent":       { x: 300, y: 680 },
+  "ticket_analysis_node":       { x: 40, y: 30 },
+  "transcript_analysis_node":   { x: 40, y: 180 },
+  "overall_decision_node":      { x: 40, y: 330 },
 };
 
 const staticEdges = [
-  { source: "query_translator",      target: "intent_analyzer" },
-  { source: "intent_analyzer",       target: "graph_librarian" },
-  { source: "intent_analyzer",       target: "generator_agent" },
-  { source: "graph_librarian",       target: "data_analysis" },
-  { source: "graph_librarian",       target: "retrieval_synthesizer" },
-  { source: "data_analysis",         target: "retrieval_synthesizer" },
-  { source: "data_analysis",         target: "relevance_evaluator" },
-  { source: "retrieval_synthesizer", target: "relevance_evaluator" },
-  { source: "relevance_evaluator",   target: "retrieval_synthesizer" },
-  { source: "relevance_evaluator",   target: "generator_agent" },
+  { source: "ticket_analysis_node", target: "transcript_analysis_node" },
+  { source: "transcript_analysis_node", target: "overall_decision_node" },
 ];
 
 // Custom Node Component
@@ -185,35 +169,15 @@ export default function TraceGraph({ nodesState }: TraceGraphProps) {
       const isCompleted = src?.status === "completed" && tgt?.status === "completed";
       const isLive = isAnimated || isCompleted;
 
-      // Suppress shortcut edge (intent -> generator) if the full pipeline was used
-      let suppress = false;
-      
-      if (edge.source === "intent_analyzer" && edge.target === "generator_agent") {
-        const librarian = statusMap.get("graph_librarian");
-        if (librarian && librarian.status !== "idle") suppress = true;
-      }
-      
-      // Suppress librarian -> vector if Pandas ran (because it routes through pandas first)
-      if (edge.source === "graph_librarian" && edge.target === "retrieval_synthesizer") {
-        const pandas = statusMap.get("data_analysis");
-        if (pandas && pandas.status !== "idle") suppress = true;
-      }
-      
-      // Suppress pandas -> relevance if Vector ran (because it routes through vector first)
-      if (edge.source === "data_analysis" && edge.target === "relevance_evaluator") {
-        const vector = statusMap.get("retrieval_synthesizer");
-        if (vector && vector.status !== "idle") suppress = true;
-      }
-
       return {
         id: `edge-${edge.source}-${edge.target}`,
         source: edge.source,
         target: edge.target,
-        animated: !suppress && isAnimated,
+        animated: isAnimated,
         style: {
-          stroke: suppress ? "#cbd5e1" : isCompleted ? "#22c55e" : isAnimated ? "#14b8a6" : "#cbd5e1",
-          strokeWidth: isLive && !suppress ? 2.5 : 1,
-          opacity: isLive && !suppress ? 1 : 0.2,
+          stroke: isCompleted ? "#22c55e" : isAnimated ? "#14b8a6" : "#cbd5e1",
+          strokeWidth: isLive ? 2.5 : 1,
+          opacity: isLive ? 1 : 0.2,
           transition: "stroke 0.4s ease, opacity 0.4s ease",
         },
       };
@@ -233,7 +197,7 @@ export default function TraceGraph({ nodesState }: TraceGraphProps) {
   }, [flowEdges]);
 
   return (
-    <div className="w-full h-[640px] bg-gray-50 dark:bg-zinc-950/20 border border-gray-200 dark:border-zinc-800 rounded-xl overflow-hidden transition-all duration-300 relative">
+    <div className="w-full h-[480px] bg-gray-50 dark:bg-zinc-950/20 border border-gray-200 dark:border-zinc-800 rounded-xl overflow-hidden transition-all duration-300 relative">
       <div className="absolute top-3 left-4 z-10 bg-white/95 dark:bg-zinc-900/95 border border-gray-200/80 dark:border-zinc-800/80 px-3 py-1.5 rounded-lg shadow-sm">
         <h4 className="text-xs font-semibold text-gray-800 dark:text-zinc-200 flex items-center gap-1.5">
           <Cpu className="h-3.5 w-3.5 text-teal-500 animate-spin" style={{ animationDuration: "3s" }} />

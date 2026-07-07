@@ -31,6 +31,9 @@ from agents.nodes.generator_node import GeneratorNode
 from agents.nodes.data_analysis_node import DataAnalysisNode
 from agents.nodes.librarian_node import GraphLibrarianNode
 from agents.nodes.summarizer_node import SummarizerNode
+from agents.nodes.ticket_analysis_node import ticket_analysis_node
+from agents.nodes.transcript_analysis_node import transcript_analysis_node
+from agents.nodes.overall_decision_node import overall_decision_node
 
 class ChatbotAgent:
     def __init__(self, memory_manager: MongoMemoryManager, token_manager: TokenManager):
@@ -86,9 +89,19 @@ class ChatbotAgent:
         workflow.add_node("data_analysis", data_analysis)
         workflow.add_node("generator_agent", generator)
         workflow.add_node("summarizer_agent", summarizer)
+        workflow.add_node("ticket_analysis_node", ticket_analysis_node)
+        workflow.add_node("transcript_analysis_node", transcript_analysis_node)
+        workflow.add_node("overall_decision_node", overall_decision_node)
         
         # Define Edges
-        workflow.add_edge(START, "query_translator")
+        workflow.add_conditional_edges(
+            START,
+            lambda state: "ticket_analysis_node" if state.get("target_customer_id") else "query_translator",
+            {
+                "ticket_analysis_node": "ticket_analysis_node",
+                "query_translator": "query_translator"
+            }
+        )
         workflow.add_edge("query_translator", "intent_analyzer")
         
         workflow.add_conditional_edges(
@@ -153,6 +166,12 @@ class ChatbotAgent:
         
         workflow.add_edge("generator_agent", "summarizer_agent")
         workflow.add_edge("summarizer_agent", END)
+        
+        # New edges for customer analysis workflow
+        workflow.add_edge("ticket_analysis_node", "transcript_analysis_node")
+        workflow.add_edge("transcript_analysis_node", "overall_decision_node")
+        workflow.add_edge("overall_decision_node", END)
+        
         return workflow.compile()
 
     async def invoke(self, session_id: str, user_id: str, human_input: str):
@@ -160,12 +179,17 @@ class ChatbotAgent:
         messages = [HumanMessage(content=m["content"]) if m["role"]=="user" else AIMessage(content=m["content"]) for m in history]
         messages.append(HumanMessage(content=human_input))
         
+        target_customer_id = ""
+        if human_input.startswith("ANALYZE_CUSTOMER:"):
+            target_customer_id = human_input.split("ANALYZE_CUSTOMER:")[1].strip()
+
         state = {
             "session_id": session_id, 
             "user_id": user_id, 
             "messages": messages, 
             "translated_query": "",
             "intent": "", 
+            "target_customer_id": target_customer_id,
             "tasks": [],
             "pandas_tasks": [],
             "use_vector": False,

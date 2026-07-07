@@ -24,7 +24,12 @@ async def chat(request: ChatRequest):
     })
     
     from memory.cache_manager import cache_manager
-    cached_reply = cache_manager.get_cached_answer(request.message)
+    
+    # Bypass cache for dynamic customer analysis
+    if request.message.startswith("ANALYZE_CUSTOMER:"):
+        cached_reply = None
+    else:
+        cached_reply = cache_manager.get_cached_answer(request.message)
     
     if cached_reply:
         response_text = cached_reply
@@ -35,7 +40,8 @@ async def chat(request: ChatRequest):
         })
     else:
         response_text = await chatbot.invoke(request.session_id, request.user_id, request.message)
-        cache_manager.set_cached_answer(request.message, response_text)
+        if not request.message.startswith("ANALYZE_CUSTOMER:"):
+            cache_manager.set_cached_answer(request.message, response_text)
         await streamer.broadcast({
             "type": "state_transition",
             "node": "END",

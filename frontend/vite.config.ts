@@ -20,6 +20,7 @@ export default defineConfig(() => {
         '/upload': 'http://localhost:8000',
         '/analyze-metadata': 'http://localhost:8000',
         '/admin': 'http://localhost:8000',
+        '/api': 'http://localhost:8000',
         '/ws': {
           target: 'ws://localhost:8000',
           ws: true
