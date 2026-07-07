@@ -1,0 +1,35 @@
+{
+  "customer_id": "CUST1004",
+  "ticket_id": "TKT5019",
+  "created_date": "2025-07-03T06:45:00Z",
+  "priority": "Critical",
+  "category": "Payment Gateway",
+  "status": "Open",
+  "assigned_team": "Payments Engineering",
+  "resolution_time_hours": 23,
+  "sla_breach": false,
+  "reopen_count": 2,
+  "handoff_count": 4,
+  "comment_history": [
+    {
+      "timestamp": "2025-07-03T06:48:00Z",
+      "author": "Customer",
+      "comment": "Payment failures have started again."
+    },
+    {
+      "timestamp": "2025-07-03T10:10:00Z",
+      "author": "Agent",
+      "comment": "Transferred to Infrastructure team."
+    },
+    {
+      "timestamp": "2025-07-03T16:40:00Z",
+      "author": "Customer",
+      "comment": "We're approaching the SLA deadline with no fix."
+    },
+    {
+      "timestamp": "2025-07-04T05:30:00Z",
+      "author": "Agent",
+      "comment": "Engineering is still investigating."
+    }
+  ]
+}

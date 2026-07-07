@@ -1,0 +1,35 @@
+{
+  "customer_id": "CUST1002",
+  "ticket_id": "TKT5002",
+  "created_date": "2025-06-02T11:30:00Z",
+  "priority": "High",
+  "category": "Technical Issue",
+  "status": "Escalated",
+  "assigned_team": "Platform Engineering",
+  "resolution_time_hours": 42,
+  "sla_breach": true,
+  "reopen_count": 2,
+  "handoff_count": 3,
+  "comment_history": [
+    {
+      "timestamp": "2025-06-02T11:35:00Z",
+      "author": "Customer",
+      "comment": "Our production application has been down for hours."
+    },
+    {
+      "timestamp": "2025-06-02T15:10:00Z",
+      "author": "Agent",
+      "comment": "We are investigating the issue."
+    },
+    {
+      "timestamp": "2025-06-03T09:20:00Z",
+      "author": "Customer",
+      "comment": "Still no update. This is unacceptable."
+    },
+    {
+      "timestamp": "2025-06-03T10:30:00Z",
+      "author": "Manager",
+      "comment": "Ticket escalated to Platform Engineering."
+    }
+  ]
+}

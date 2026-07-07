@@ -23,6 +23,17 @@ class UserManager:
         })
         return {"success": True, "role": role}
 
+    def create_user(self, username: str, password: str, role: str):
+        """Create a user with an explicitly specified role (admin-only action)."""
+        if self.collection.find_one({"username": username}):
+            return {"error": "Username already exists"}
+        self.collection.insert_one({
+            "username": username,
+            "password": password,
+            "role": role
+        })
+        return {"success": True, "role": role}
+
     def login(self, username, password):
         # We allow password="admin" to override for ease of testing based on user prompt,
         # otherwise verify normal password.

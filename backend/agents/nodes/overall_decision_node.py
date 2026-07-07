@@ -1,68 +1,46 @@
 import os
 import json
 import time
-from langchain_openai import ChatOpenAI
-from langchain_google_genai import ChatGoogleGenerativeAI
-from pydantic import BaseModel, Field
+from pymongo import MongoClient
 from agents.state import AgentState, streamer
 from agents.utils import get_metrics
-
-class FinalDecision(BaseModel):
-    summary: str = Field(description="A brief 2-3 sentence overall summary of the customer's current standing.")
-    sentiment: str = Field(description="Overall Customer Sentiment (e.g., Positive, Neutral, Negative, Frustrated).")
-    escalation_score: int = Field(description="Escalation Prediction Score as a percentage (0 to 100).")
-    root_cause_analysis: str = Field(description="A detailed analysis of the root causes of the customer's issues based on ticket history.")
-    complaint_themes: list[str] = Field(description="List of top complaint themes extracted from the historical data.", default_factory=list)
-    next_best_action: list[str] = Field(description="Recommended actionable next steps for the CXO or support team.", default_factory=list)
+from langchain_core.messages import AIMessage
 
 async def overall_decision_node(state: AgentState):
-    """Combines ticket analysis and transcript analysis to form a final structured CXO decision."""
+    """Fetches the pre-calculated final structured CXO decision from the database."""
     start_time = time.time()
     node_id = "overall_decision_node"
-    await streamer.emit_node_active(node_id, "Synthesizing executive risk assessment...")
+    await streamer.emit_node_active(node_id, "Loading executive risk assessment from database...")
     customer_id = state.get("target_customer_id", "Unknown")
     
-    ticket_analysis = state.get("ticket_analysis", "No ticket data.")
-    transcript_analysis = state.get("transcript_analysis", "No transcript data.")
+    # Query MongoDB for the customer's risk profile
+    mongo_uri = os.getenv("MONGO_URI", "mongodb://localhost:27017")
+    client = MongoClient(mongo_uri)
+    db = client["cxo_sentiment_db"]
+    customers_col = db["customers"]
     
-    prompt = f"""You are an Executive AI Analyst for a Customer Experience Officer (CXO) dashboard.
-Your task is to review the aggregated data for customer {customer_id} and provide an executive risk assessment.
-
-Data Sources:
---- TICKET HISTORY ANALYSIS ---
-{ticket_analysis}
-
---- EXTERNAL TRANSCRIPT ANALYSIS ---
-{transcript_analysis}
-"""
-
-    llm_provider = os.getenv("LLM_PROVIDER", "gemini").lower()
-    if llm_provider == "openai":
-        model_name = os.getenv("OPENAI_MODEL_NAME", "gpt-4o")
-        llm_kwargs = {"model": model_name, "temperature": 0.2}
-        headroom_proxy = os.getenv("HEADROOM_PROXY")
-        if headroom_proxy:
-            llm_kwargs["base_url"] = headroom_proxy
-        llm = ChatOpenAI(**llm_kwargs).with_structured_output(FinalDecision, include_raw=True)
+    customer = customers_col.find_one({"_id": customer_id})
+    if customer and "risk_profile" in customer:
+        risk_profile = customer["risk_profile"]
+        risk_profile["customer_id"] = customer_id
+        risk_profile["customer_name"] = customer.get("customer_name", customer_id)
+        final_json = json.dumps(risk_profile)
     else:
-        model_name = os.getenv("GEMINI_MODEL_NAME", "gemini-1.5-pro-latest")
-        llm = ChatGoogleGenerativeAI(model=model_name, temperature=0.2).with_structured_output(FinalDecision, include_raw=True)
+        # Fallback if no profile exists
+        fallback = {
+            "summary": "No risk profile found in database. Please run ingestion pipeline.",
+            "sentiment": "Unknown",
+            "escalation_score": 0,
+            "root_cause_analysis": "No data available.",
+            "complaint_themes": [],
+            "next_best_action": [],
+            "timeline": "No timeline available.",
+            "customer_id": customer_id,
+            "customer_name": "Unknown"
+        }
+        final_json = json.dumps(fallback)
         
-    # Run structured generation
-    resp = await llm.ainvoke(prompt)
-    
-    parsed_obj = resp["parsed"]
-    raw_msg = resp["raw"]
-    
-    # Convert Pydantic model to dict
-    if isinstance(parsed_obj, dict):
-        final_json = json.dumps(parsed_obj)
-    else:
-        final_json = parsed_obj.model_dump_json()
-    
-    # Add back to state (as a system/assistant message or similar)
-    from langchain_core.messages import AIMessage
     state["messages"].append(AIMessage(content=final_json))
     
-    await streamer.emit_node_completed(node_id, get_metrics(start_time, raw_msg))
+    await streamer.emit_node_completed(node_id, get_metrics(start_time))
     return state

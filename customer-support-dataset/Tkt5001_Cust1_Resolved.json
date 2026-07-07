@@ -1,0 +1,30 @@
+{
+  "customer_id": "CUST1001",
+  "ticket_id": "TKT5001",
+  "created_date": "2025-06-01T09:15:00Z",
+  "priority": "Low",
+  "category": "Billing",
+  "status": "Resolved",
+  "assigned_team": "Billing Support",
+  "resolution_time_hours": 2.5,
+  "sla_breach": false,
+  "reopen_count": 0,
+  "handoff_count": 0,
+  "comment_history": [
+    {
+      "timestamp": "2025-06-01T09:20:00Z",
+      "author": "Customer",
+      "comment": "I was charged twice for my monthly subscription."
+    },
+    {
+      "timestamp": "2025-06-01T10:10:00Z",
+      "author": "Agent",
+      "comment": "We identified the duplicate charge and initiated a refund."
+    },
+    {
+      "timestamp": "2025-06-01T11:40:00Z",
+      "author": "Customer",
+      "comment": "Thank you for the quick resolution."
+    }
+  ]
+}

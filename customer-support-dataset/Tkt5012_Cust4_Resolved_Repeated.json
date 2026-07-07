@@ -1,0 +1,30 @@
+{
+  "customer_id": "CUST1004",
+  "ticket_id": "TKT5012",
+  "created_date": "2025-05-20T13:45:00Z",
+  "priority": "Medium",
+  "category": "Billing",
+  "status": "Resolved",
+  "assigned_team": "Billing Support",
+  "resolution_time_hours": 16,
+  "sla_breach": false,
+  "reopen_count": 2,
+  "handoff_count": 2,
+  "comment_history": [
+    {
+      "timestamp": "2025-05-20T13:50:00Z",
+      "author": "Customer",
+      "comment": "This is the third invoice with the same incorrect charges."
+    },
+    {
+      "timestamp": "2025-05-20T17:30:00Z",
+      "author": "Agent",
+      "comment": "The invoice has been regenerated."
+    },
+    {
+      "timestamp": "2025-05-21T08:45:00Z",
+      "author": "Customer",
+      "comment": "The incorrect charge is still present."
+    }
+  ]
+}

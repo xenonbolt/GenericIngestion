@@ -1,0 +1,14 @@
+{
+  "ticket_id": "TKT5004",
+  "customer_id": "CUST1004",
+  "escalation_date": "2025-06-05T10:15:00Z",
+  "final_resolution": {
+    "resolved_date": "2025-06-06T15:40:00Z",
+    "resolution_summary": "Payment gateway outage caused transaction failures. Engineering switched traffic to the backup gateway, reconciled failed transactions, and processed pending payments.",
+    "resolution_owner": "Payments Engineering",
+    "resolution_type": "Infrastructure Recovery",
+    "customer_feedback": "Issue resolved, but the downtime significantly impacted our business.",
+    "customer_satisfaction": 2,
+    "closed": true
+  }
+}

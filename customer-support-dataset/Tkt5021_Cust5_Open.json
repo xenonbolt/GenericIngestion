@@ -1,0 +1,25 @@
+{
+  "customer_id": "CUST1005",
+  "ticket_id": "TKT5021",
+  "created_date": "2025-07-06T09:10:00Z",
+  "priority": "Low",
+  "category": "Feature Request",
+  "status": "Open",
+  "assigned_team": "Product Support",
+  "resolution_time_hours": 5,
+  "sla_breach": false,
+  "reopen_count": 0,
+  "handoff_count": 0,
+  "comment_history": [
+    {
+      "timestamp": "2025-07-06T09:12:00Z",
+      "author": "Customer",
+      "comment": "Can you add export to Excel in reports?"
+    },
+    {
+      "timestamp": "2025-07-06T11:00:00Z",
+      "author": "Agent",
+      "comment": "The request has been forwarded to Product Management."
+    }
+  ]
+}

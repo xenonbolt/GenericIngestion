@@ -1,0 +1,30 @@
+{
+  "customer_id": "CUST1004",
+  "ticket_id": "TKT5011",
+  "created_date": "2025-05-12T09:20:00Z",
+  "priority": "High",
+  "category": "Payment Gateway",
+  "status": "Resolved",
+  "assigned_team": "Payments Engineering",
+  "resolution_time_hours": 28,
+  "sla_breach": false,
+  "reopen_count": 1,
+  "handoff_count": 5,
+  "comment_history": [
+    {
+      "timestamp": "2025-05-12T09:22:00Z",
+      "author": "Customer",
+      "comment": "I've spoken with four different agents already."
+    },
+    {
+      "timestamp": "2025-05-12T16:30:00Z",
+      "author": "Agent",
+      "comment": "We're transferring this to the payments specialists."
+    },
+    {
+      "timestamp": "2025-05-13T12:10:00Z",
+      "author": "Customer",
+      "comment": "Why do I have to explain the problem every time?"
+    }
+  ]
+}

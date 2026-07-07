@@ -1,0 +1,30 @@
+{
+  "customer_id": "CUST1004",
+  "ticket_id": "TKT5020",
+  "created_date": "2025-07-04T11:20:00Z",
+  "priority": "High",
+  "category": "Transaction Failure",
+  "status": "Open",
+  "assigned_team": "Payments Support",
+  "resolution_time_hours": 12,
+  "sla_breach": false,
+  "reopen_count": 1,
+  "handoff_count": 6,
+  "comment_history": [
+    {
+      "timestamp": "2025-07-04T11:25:00Z",
+      "author": "Customer",
+      "comment": "This is the sixth person I've spoken to."
+    },
+    {
+      "timestamp": "2025-07-04T15:45:00Z",
+      "author": "Agent",
+      "comment": "Moving this to Payments Engineering."
+    },
+    {
+      "timestamp": "2025-07-04T19:10:00Z",
+      "author": "Customer",
+      "comment": "No one seems to own this issue."
+    }
+  ]
+}

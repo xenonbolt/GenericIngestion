@@ -1,0 +1,30 @@
+{
+  "customer_id": "CUST1003",
+  "ticket_id": "TKT5003",
+  "created_date": "2025-06-03T14:45:00Z",
+  "priority": "Medium",
+  "category": "Password Reset",
+  "status": "Resolved",
+  "assigned_team": "Identity Support",
+  "resolution_time_hours": 1,
+  "sla_breach": false,
+  "reopen_count": 0,
+  "handoff_count": 0,
+  "comment_history": [
+    {
+      "timestamp": "2025-06-03T14:46:00Z",
+      "author": "Customer",
+      "comment": "I can't log into my account."
+    },
+    {
+      "timestamp": "2025-06-03T15:10:00Z",
+      "author": "Agent",
+      "comment": "Password reset link has been sent."
+    },
+    {
+      "timestamp": "2025-06-03T15:35:00Z",
+      "author": "Customer",
+      "comment": "It worked. Thanks!"
+    }
+  ]
+}

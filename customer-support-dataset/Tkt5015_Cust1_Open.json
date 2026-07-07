@@ -1,0 +1,25 @@
+{
+  "customer_id": "CUST1001",
+  "ticket_id": "TKT5015",
+  "created_date": "2025-07-05T09:30:00Z",
+  "priority": "Medium",
+  "category": "Billing",
+  "status": "Open",
+  "assigned_team": "Billing Support",
+  "resolution_time_hours": 18,
+  "sla_breach": false,
+  "reopen_count": 0,
+  "handoff_count": 1,
+  "comment_history": [
+    {
+      "timestamp": "2025-07-05T09:35:00Z",
+      "author": "Customer",
+      "comment": "My latest invoice shows an unexpected service charge."
+    },
+    {
+      "timestamp": "2025-07-05T11:00:00Z",
+      "author": "Agent",
+      "comment": "We're verifying the invoice details."
+    }
+  ]
+}

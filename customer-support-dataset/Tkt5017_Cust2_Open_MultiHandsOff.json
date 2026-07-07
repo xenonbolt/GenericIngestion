@@ -1,0 +1,30 @@
+{
+  "customer_id": "CUST1002",
+  "ticket_id": "TKT5017",
+  "created_date": "2025-07-04T10:15:00Z",
+  "priority": "High",
+  "category": "Performance",
+  "status": "Open",
+  "assigned_team": "Application Support",
+  "resolution_time_hours": 14,
+  "sla_breach": false,
+  "reopen_count": 2,
+  "handoff_count": 5,
+  "comment_history": [
+    {
+      "timestamp": "2025-07-04T10:18:00Z",
+      "author": "Customer",
+      "comment": "I've explained this issue to four different agents already."
+    },
+    {
+      "timestamp": "2025-07-04T13:20:00Z",
+      "author": "Agent",
+      "comment": "Routing to Database Support."
+    },
+    {
+      "timestamp": "2025-07-04T17:45:00Z",
+      "author": "Customer",
+      "comment": "Please stop transferring this ticket."
+    }
+  ]
+}

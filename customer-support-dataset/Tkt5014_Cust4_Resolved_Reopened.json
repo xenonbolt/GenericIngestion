@@ -1,0 +1,30 @@
+{
+  "customer_id": "CUST1004",
+  "ticket_id": "TKT5014",
+  "created_date": "2025-05-30T15:10:00Z",
+  "priority": "High",
+  "category": "Transaction Failure",
+  "status": "Resolved",
+  "assigned_team": "Payments Support",
+  "resolution_time_hours": 22,
+  "sla_breach": false,
+  "reopen_count": 4,
+  "handoff_count": 2,
+  "comment_history": [
+    {
+      "timestamp": "2025-05-30T15:12:00Z",
+      "author": "Customer",
+      "comment": "The issue returned within a day after you marked it resolved."
+    },
+    {
+      "timestamp": "2025-05-31T08:30:00Z",
+      "author": "Agent",
+      "comment": "We are investigating further."
+    },
+    {
+      "timestamp": "2025-05-31T18:15:00Z",
+      "author": "Customer",
+      "comment": "Please assign someone who can permanently fix this."
+    }
+  ]
+}

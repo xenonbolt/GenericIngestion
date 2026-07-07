@@ -1,0 +1,35 @@
+{
+  "customer_id": "CUST1004",
+  "ticket_id": "TKT5004",
+  "created_date": "2025-06-04T08:10:00Z",
+  "priority": "Critical",
+  "category": "Payment Failure",
+  "status": "Escalated",
+  "assigned_team": "Payments Engineering",
+  "resolution_time_hours": 55,
+  "sla_breach": true,
+  "reopen_count": 3,
+  "handoff_count": 4,
+  "comment_history": [
+    {
+      "timestamp": "2025-06-04T08:15:00Z",
+      "author": "Customer",
+      "comment": "None of our customers can complete payments."
+    },
+    {
+      "timestamp": "2025-06-04T12:30:00Z",
+      "author": "Agent",
+      "comment": "Issue has been forwarded to engineering."
+    },
+    {
+      "timestamp": "2025-06-05T09:45:00Z",
+      "author": "Customer",
+      "comment": "We are losing business every hour."
+    },
+    {
+      "timestamp": "2025-06-05T10:15:00Z",
+      "author": "Manager",
+      "comment": "Priority upgraded to Critical."
+    }
+  ]
+}

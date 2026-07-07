@@ -1,0 +1,25 @@
+{
+  "customer_id": "CUST1006",
+  "ticket_id": "TKT5022",
+  "created_date": "2025-07-06T08:50:00Z",
+  "priority": "Medium",
+  "category": "Login Issue",
+  "status": "Open",
+  "assigned_team": "Identity Support",
+  "resolution_time_hours": 7,
+  "sla_breach": false,
+  "reopen_count": 0,
+  "handoff_count": 1,
+  "comment_history": [
+    {
+      "timestamp": "2025-07-06T08:55:00Z",
+      "author": "Customer",
+      "comment": "I'm not receiving the OTP for login."
+    },
+    {
+      "timestamp": "2025-07-06T10:30:00Z",
+      "author": "Agent",
+      "comment": "We're checking the SMS delivery service."
+    }
+  ]
+}

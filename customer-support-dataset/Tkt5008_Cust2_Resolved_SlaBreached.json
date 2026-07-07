@@ -1,0 +1,30 @@
+{
+  "customer_id": "CUST1002",
+  "ticket_id": "TKT5008",
+  "created_date": "2025-05-25T08:15:00Z",
+  "priority": "High",
+  "category": "API Failure",
+  "status": "Resolved",
+  "assigned_team": "API Support",
+  "resolution_time_hours": 30,
+  "sla_breach": true,
+  "reopen_count": 1,
+  "handoff_count": 2,
+  "comment_history": [
+    {
+      "timestamp": "2025-05-25T08:18:00Z",
+      "author": "Customer",
+      "comment": "Our integrations are failing due to API timeouts."
+    },
+    {
+      "timestamp": "2025-05-25T18:00:00Z",
+      "author": "Customer",
+      "comment": "Any update? We've exceeded the promised SLA."
+    },
+    {
+      "timestamp": "2025-05-26T14:00:00Z",
+      "author": "Agent",
+      "comment": "Issue resolved after backend optimization."
+    }
+  ]
+}

@@ -66,7 +66,7 @@ class RoleUpdateRequest(BaseModel):
 @router.post("/users/{username}/role")
 def update_user_role(username: str, req: RoleUpdateRequest):
     from auth.user_manager import user_manager
-    if req.role not in ["admin", "basic"]:
+    if req.role not in ["admin", "basic", "risk-manager"]:
         raise HTTPException(status_code=400, detail="Invalid role")
     
     success = user_manager.update_user_role(username, req.role)
@@ -75,3 +75,20 @@ def update_user_role(username: str, req: RoleUpdateRequest):
     
     audit_manager.log_action("admin", "USER_ROLE_UPDATED", f"Changed role of {username} to {req.role}")
     return {"status": "success", "message": f"Role updated to {req.role}"}
+
+
+class CreateUserRequest(BaseModel):
+    username: str
+    password: str
+    role: str
+
+@router.post("/users")
+def create_user(req: CreateUserRequest):
+    from auth.user_manager import user_manager
+    if req.role not in ["admin", "basic", "risk-manager"]:
+        raise HTTPException(status_code=400, detail="Invalid role")
+    result = user_manager.create_user(req.username, req.password, req.role)
+    if "error" in result:
+        raise HTTPException(status_code=400, detail=result["error"])
+    audit_manager.log_action("admin", "USER_CREATED", f"Created user {req.username} with role {req.role}")
+    return {"status": "success", "message": f"User {req.username} created with role {req.role}"}

@@ -1,0 +1,30 @@
+{
+  "customer_id": "CUST1004",
+  "ticket_id": "TKT5013",
+  "created_date": "2025-05-27T07:30:00Z",
+  "priority": "Critical",
+  "category": "Payment Failure",
+  "status": "Resolved",
+  "assigned_team": "Payments Engineering",
+  "resolution_time_hours": 40,
+  "sla_breach": true,
+  "reopen_count": 1,
+  "handoff_count": 3,
+  "comment_history": [
+    {
+      "timestamp": "2025-05-27T07:32:00Z",
+      "author": "Customer",
+      "comment": "Our customers cannot complete transactions."
+    },
+    {
+      "timestamp": "2025-05-27T20:45:00Z",
+      "author": "Customer",
+      "comment": "We've received no meaningful update despite the SLA commitment."
+    },
+    {
+      "timestamp": "2025-05-28T10:15:00Z",
+      "author": "Agent",
+      "comment": "Engineering has deployed a permanent fix."
+    }
+  ]
+}

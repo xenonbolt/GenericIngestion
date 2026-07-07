@@ -1,5 +1,5 @@
-import React from "react";
-import { User, Activity, AlertTriangle, MessageSquare, Flame } from "lucide-react";
+import React, { useState } from "react";
+import { User, Activity, AlertTriangle, MessageSquare, ArrowLeft } from "lucide-react";
 
 interface AnalysisData {
   summary: string;
@@ -8,14 +8,51 @@ interface AnalysisData {
   root_cause_analysis: string;
   complaint_themes?: string[];
   next_best_action?: string[];
+  timeline?: string;
+  customer_id?: string;
+  customer_name?: string;
 }
 
 interface CustomerAnalysisPanelProps {
   data: AnalysisData | null;
   loading: boolean;
+  onBack?: () => void;
 }
 
-export default function CustomerAnalysisPanel({ data, loading }: CustomerAnalysisPanelProps) {
+export default function CustomerAnalysisPanel({ data, loading, onBack }: CustomerAnalysisPanelProps) {
+  const [escalating, setEscalating] = useState(false);
+  const [escalationTicket, setEscalationTicket] = useState<string | null>(null);
+  const [escalationError, setEscalationError] = useState<string | null>(null);
+
+  const handleEscalationRequest = async () => {
+    if (!data) return;
+    setEscalating(true);
+    setEscalationError(null);
+    try {
+      const response = await fetch('/api/escalations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          customer_id: data.customer_id || "",
+          customer_name: data.customer_name || data.customer_id || "Unknown Customer",
+          summary: data.summary,
+          root_cause_analysis: data.root_cause_analysis || "",
+          next_best_actions: data.next_best_action || []
+        })
+      });
+      const result = await response.json();
+      if (response.ok && result.ticket_number) {
+        setEscalationTicket(result.ticket_number);
+      } else {
+        setEscalationError("Failed to create escalation request.");
+      }
+    } catch (e) {
+      console.error(e);
+      setEscalationError("Error connecting to server.");
+    } finally {
+      setEscalating(false);
+    }
+  };
   if (loading) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center h-full bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 rounded-2xl shadow-sm p-8 text-center animate-pulse">
@@ -61,16 +98,37 @@ export default function CustomerAnalysisPanel({ data, loading }: CustomerAnalysi
   const scoreColor = data.escalation_score > 70 ? "text-red-500" : data.escalation_score > 40 ? "text-orange-500" : "text-green-500";
   const scoreBg = data.escalation_score > 70 ? "bg-red-500" : data.escalation_score > 40 ? "bg-orange-500" : "bg-green-500";
 
+  const formatMarkdown = (text: string) => {
+    return text.split('\n').map((line, i) => {
+      let formattedLine = line.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+      formattedLine = formattedLine.replace(/^\*\s*(.*)/, '• $1');
+      return (
+        <span key={i} className="block" dangerouslySetInnerHTML={{ __html: formattedLine }} />
+      );
+    });
+  };
+
   return (
     <div className="flex-1 flex flex-col bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 rounded-2xl shadow-sm overflow-hidden h-full">
-      <div className="p-6 border-b border-gray-100 dark:border-zinc-800 bg-gray-50/50 dark:bg-zinc-900/50">
-        <h2 className="text-xl font-black text-gray-900 dark:text-white tracking-tight flex items-center gap-2">
-          <Activity className="h-5 w-5 text-teal-500" />
-          Executive Risk Assessment
-        </h2>
-        <p className="text-sm text-gray-500 dark:text-zinc-400 mt-1">
-          AI-generated synthesis of historical tickets and interaction transcripts.
-        </p>
+      <div className="p-6 border-b border-gray-100 dark:border-zinc-800 bg-gray-50/50 dark:bg-zinc-900/50 flex justify-between items-center shrink-0">
+        <div>
+          <h2 className="text-xl font-black text-gray-900 dark:text-white tracking-tight flex items-center gap-2">
+            <Activity className="h-5 w-5 text-teal-500" />
+            Executive Risk Assessment
+          </h2>
+          <p className="text-sm text-gray-500 dark:text-zinc-400 mt-1">
+            AI-generated synthesis of historical tickets and interaction transcripts.
+          </p>
+        </div>
+        {onBack && (
+          <button 
+            onClick={onBack}
+            className="flex items-center gap-2 px-3 py-1.5 text-xs font-semibold text-gray-600 dark:text-zinc-300 bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 rounded-lg hover:bg-gray-50 dark:hover:bg-zinc-700 transition-colors"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back to List
+          </button>
+        )}
       </div>
 
       <div className="p-6 space-y-6 overflow-y-auto">
@@ -120,33 +178,43 @@ export default function CustomerAnalysisPanel({ data, loading }: CustomerAnalysi
           </div>
         )}
 
-        {/* Complaint Themes & Next Best Action */}
-        {(data.complaint_themes?.length || data.next_best_action?.length) && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {data.complaint_themes && data.complaint_themes.length > 0 && (
-              <div className="p-5 rounded-xl border border-gray-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
-                <h3 className="text-sm font-bold text-gray-800 dark:text-zinc-200 mb-3">Complaint Themes</h3>
-                <div className="flex flex-wrap gap-2">
-                  {data.complaint_themes.map((theme, i) => (
-                    <span key={i} className="px-2.5 py-1 rounded-md text-xs font-medium bg-gray-100 dark:bg-zinc-800 text-gray-700 dark:text-zinc-300">
-                      {theme}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
-            
-            {data.next_best_action && data.next_best_action.length > 0 && (
-              <div className="p-5 rounded-xl border border-teal-200 dark:border-teal-900/30 bg-teal-50/50 dark:bg-teal-900/10">
-                <h3 className="text-sm font-bold text-teal-800 dark:text-teal-400 mb-3">Next Best Actions</h3>
-                <ul className="space-y-2">
-                  {data.next_best_action.map((action, i) => (
-                    <li key={i} className="text-sm text-teal-700/90 dark:text-teal-300/80 flex items-start gap-2">
-                      <span className="text-teal-500 mt-0.5">•</span>
-                      <span>{action}</span>
-                    </li>
-                  ))}
-                </ul>
+        {/* Customer Journey Timeline */}
+        {data.timeline && (
+          <div className="p-5 rounded-xl border border-gray-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
+            <h3 className="text-sm font-bold text-gray-800 dark:text-zinc-200 mb-3 flex items-center gap-2">
+              <Activity className="h-4 w-4 text-violet-500" />
+              Customer Journey Timeline
+            </h3>
+            <div className="text-sm text-gray-600 dark:text-zinc-300 leading-relaxed font-mono space-y-1">
+              {formatMarkdown(data.timeline)}
+            </div>
+            {data.escalation_score > 50 && (
+              <div className="mt-4 pt-4 border-t border-gray-100 dark:border-zinc-800 space-y-3">
+                {!escalationTicket ? (
+                  <div className="flex justify-end">
+                    <button
+                      onClick={handleEscalationRequest}
+                      disabled={escalating}
+                      className={`px-4 py-2 ${escalating ? 'bg-red-400 cursor-not-allowed' : 'bg-red-600 hover:bg-red-700 cursor-pointer'} text-white text-xs font-semibold rounded-lg shadow-md shadow-red-500/20 flex items-center gap-2 transition-all`}
+                    >
+                      <AlertTriangle className={`h-4 w-4 ${escalating ? 'animate-pulse' : ''}`} />
+                      {escalating ? 'Requesting...' : 'Request Escalation Manager'}
+                    </button>
+                  </div>
+                ) : (
+                  <div className="p-3 rounded-lg bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-900/40 text-xs text-green-700 dark:text-green-400 flex items-start gap-2">
+                    <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5 text-green-500" />
+                    <div>
+                      <span className="font-semibold">Escalation Request Created for Risk Manager</span><br />
+                      Ticket: <span className="font-mono font-bold">{escalationTicket}</span> is now <span className="font-semibold">Open</span> and assigned to the Risk Manager queue.
+                    </div>
+                  </div>
+                )}
+                {escalationError && (
+                  <div className="p-3 rounded-lg bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/40 text-xs text-red-700 dark:text-red-400">
+                    {escalationError}
+                  </div>
+                )}
               </div>
             )}
           </div>

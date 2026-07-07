@@ -17,6 +17,8 @@ export default function AdminDashboardModal({
   const [approvals, setApprovals] = useState<ApprovalItem[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [users, setUsers] = useState<{username: string, role: string}[]>([]);
+  const [newUser, setNewUser] = useState({ username: "", password: "", role: "risk-manager" });
+  const [createMsg, setCreateMsg] = useState<string | null>(null);
   
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -87,6 +89,27 @@ export default function AdminDashboardModal({
       fetchData();
     } catch (err: any) {
       setError(err.message);
+    }
+  };
+
+  const handleCreateUser = async () => {
+    if (!newUser.username.trim() || !newUser.password.trim()) {
+      setCreateMsg("Username and password are required.");
+      return;
+    }
+    try {
+      const res = await fetch("/admin/users", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(newUser)
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || "Failed to create user");
+      setCreateMsg(`User "${newUser.username}" created successfully.`);
+      setNewUser({ username: "", password: "", role: "risk-manager" });
+      fetchData();
+    } catch (err: any) {
+      setCreateMsg(err.message);
     }
   };
 
@@ -283,14 +306,56 @@ export default function AdminDashboardModal({
                           onChange={(e) => handleRoleChange(u.username, e.target.value)}
                           className="bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 text-gray-800 dark:text-zinc-200 rounded px-2 py-1 outline-none focus:ring-1 focus:ring-teal-500"
                         >
-                          <option value="basic">Basic</option>
+                        <option value="basic">Basic</option>
                           <option value="admin">Admin</option>
+                          <option value="risk-manager">Risk Manager</option>
                         </select>
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
+
+              {/* Create User Form */}
+              <div className="mt-6 p-4 rounded-xl border border-dashed border-gray-200 dark:border-zinc-700 bg-gray-50/50 dark:bg-zinc-800/30">
+                <h4 className="text-xs font-bold text-gray-700 dark:text-zinc-300 uppercase tracking-wider mb-3">Create New User</h4>
+                {createMsg && (
+                  <div className={`mb-3 p-2 rounded text-xs font-medium ${createMsg.includes('success') ? 'bg-green-50 dark:bg-green-950/20 text-green-700 dark:text-green-400' : 'bg-red-50 dark:bg-red-950/20 text-red-700 dark:text-red-400'}`}>
+                    {createMsg}
+                  </div>
+                )}
+                <div className="grid grid-cols-3 gap-3">
+                  <input
+                    type="text"
+                    placeholder="Username"
+                    value={newUser.username}
+                    onChange={e => setNewUser(p => ({ ...p, username: e.target.value }))}
+                    className="bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 text-gray-800 dark:text-zinc-200 rounded px-3 py-2 text-xs outline-none focus:ring-1 focus:ring-teal-500"
+                  />
+                  <input
+                    type="password"
+                    placeholder="Password"
+                    value={newUser.password}
+                    onChange={e => setNewUser(p => ({ ...p, password: e.target.value }))}
+                    className="bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 text-gray-800 dark:text-zinc-200 rounded px-3 py-2 text-xs outline-none focus:ring-1 focus:ring-teal-500"
+                  />
+                  <select
+                    value={newUser.role}
+                    onChange={e => setNewUser(p => ({ ...p, role: e.target.value }))}
+                    className="bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 text-gray-800 dark:text-zinc-200 rounded px-2 py-2 text-xs outline-none focus:ring-1 focus:ring-teal-500"
+                  >
+                    <option value="basic">Basic</option>
+                    <option value="risk-manager">Risk Manager</option>
+                    <option value="admin">Admin</option>
+                  </select>
+                </div>
+                <button
+                  onClick={handleCreateUser}
+                  className="mt-3 px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white text-xs font-semibold rounded-lg cursor-pointer transition-all"
+                >
+                  Create User
+                </button>
+              </div>
             </div>
           ) : (
             /* System Audit Logs View */

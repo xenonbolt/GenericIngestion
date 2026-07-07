@@ -27,6 +27,15 @@ class TicketRiskAnalysisOutput(BaseModel):
     signals: SignalsOutput
     root_cause_summary: str = Field(description="A concise GenAI executive summary of the root cause of the customer's issues and overall situation")
 
+class CustomerRiskProfile(BaseModel):
+    timeline: str = Field(description="Markdown formatted Customer Journey Timeline")
+    summary: str = Field(description="A brief 2-3 sentence overall summary of the customer's current standing.")
+    sentiment: str = Field(description="Overall Customer Sentiment (e.g., Positive, Neutral, Negative, Frustrated).")
+    escalation_score: int = Field(description="Escalation Prediction Score as a percentage (0 to 100).")
+    root_cause_analysis: str = Field(description="A detailed analysis of the root causes of the customer's issues based on ticket history.")
+    complaint_themes: list[str] = Field(description="List of top complaint themes extracted from the historical data.", default_factory=list)
+    next_best_action: list[str] = Field(description="Recommended actionable next steps for the CXO or support team.", default_factory=list)
+
 def calculate_risk_score(signals, sentiment):
     # Default weights totaling 100
     weights = {
@@ -102,9 +111,11 @@ class CustomerDataPipeline:
             if headroom_proxy:
                 llm_kwargs["base_url"] = headroom_proxy
             self.llm = ChatOpenAI(**llm_kwargs).with_structured_output(TicketRiskAnalysisOutput)
+            self.llm_customer = ChatOpenAI(**llm_kwargs).with_structured_output(CustomerRiskProfile)
         else:
             model_name = os.getenv("GEMINI_MODEL_NAME", "gemini-1.5-pro-latest")
             self.llm = ChatGoogleGenerativeAI(model=model_name, temperature=0.2).with_structured_output(TicketRiskAnalysisOutput)
+            self.llm_customer = ChatGoogleGenerativeAI(model=model_name, temperature=0.2).with_structured_output(CustomerRiskProfile)
 
     def ingest_dataset(self, dataset_path: str):
         """Main entry point to ingest the customer support dataset from a flat directory structure."""
@@ -133,6 +144,8 @@ class CustomerDataPipeline:
                 ticket_files.append(file_path)
         
         print(f"Processing {len(ticket_files)} tickets and found {len(escalation_files)} escalations.")
+
+        customer_tickets_map = {}
 
         for file_path in ticket_files:
             try:
@@ -257,9 +270,139 @@ Conversation:
                 self.tickets_col.replace_one({"_id": ticket_id}, ticket_data, upsert=True)
                 print(f"Ingested ticket: {ticket_id} for customer {customer_id}")
                 
+                if customer_id not in customer_tickets_map:
+                    customer_tickets_map[customer_id] = []
+                customer_tickets_map[customer_id].append(ticket_data)
+                
             except Exception as e:
                 print(f"Failed to process ticket file {file_path}: {e}")
                 
+        # Phase 2: Holistic Customer Analysis & Timeline Generation
+        print("Starting Phase 2: Holistic Customer Analysis...")
+        for customer_id, tickets in customer_tickets_map.items():
+            filtered = []
+            for t in tickets:
+                filtered.append({
+                    "ticket_id": t.get("ticket_id"),
+                    "created_date": t.get("created_date"),
+                    "status": t.get("status"),
+                    "priority": t.get("priority"),
+                    "category": t.get("category"),
+                    "sla_breach": t.get("sla_breach"),
+                    "comment_history": t.get("comment_history")
+                })
+            
+            prompt = f"""You are an Executive AI Analyst for a Customer Experience Officer (CXO).
+Analyze the following raw ticket history for Customer {customer_id} and generate a comprehensive Customer Risk Profile.
+
+You are an AI assistant that analyzes customer service tickets and generates a customer journey timeline. 
+Your task is to take the raw JSON data of ServiceNow incidents (or similar ticket systems) and convert it into a timeline as follows:
+
+**Example Timeline:**
+* **Customer:** {customer_id}
+* **Day 1 (YYYY-MM-DD):** <Aggregate Event description for this day> [Overall Sentiment: <Sentiment>]
+* **Day X (YYYY-MM-DD):** <Aggregate Event description for this day> [Overall Sentiment: <Sentiment>]
+* **Current Status:** <status>
+
+Look for SLA breaches, sentiment changes, repeated issues, escalations, and resolved tickets to build a coherent timeline. 
+CRITICAL RULES FOR TIMELINE:
+1. You must group ALL events that occur on the SAME DAY into a SINGLE timeline entry for that day. 
+2. Do NOT create multiple entries for the same day (e.g., do not output Day 1 multiple times).
+3. For each day with an entry, you MUST determine and append a single overall sentiment for that entire day in the exact format: [Overall Sentiment: <Sentiment>].
+Raw Tickets:
+{json.dumps(filtered, indent=2)}
+"""
+            print(f"Generating holistic profile for {customer_id}...")
+            try:
+                profile_obj = self.llm_customer.invoke(prompt)
+                
+                if isinstance(profile_obj, dict):
+                    profile_dict = profile_obj
+                else:
+                    profile_dict = profile_obj.model_dump()
+                    
+                self.customers_col.update_one(
+                    {"_id": customer_id},
+                    {"$set": {"risk_profile": profile_dict}}
+                )
+                print(f"Successfully generated profile for {customer_id}")
+            except Exception as e:
+                print(f"Failed to generate holistic profile for {customer_id}: {e}")
+                traceback.print_exc()
+
         print("Dataset ingestion complete.")
+
+    def incremental_update_customer(self, customer_id: str, resolved_actions: list, customer_feedback: str):
+        """Incrementally update a customer's risk profile using existing profile + resolution data.
+        
+        Instead of re-processing all historical tickets, this feeds the LLM the current
+        Customer Journey Timeline, Sentiment, Escalation Risk, and Next Best Actions as
+        a knowledge base, then applies the newly resolved actions and customer feedback
+        as an incremental update to generate a refreshed profile.
+        """
+        print(f"[INCREMENTAL] Starting incremental update for {customer_id}...")
+        customer = self.customers_col.find_one({"_id": customer_id})
+        if not customer or "risk_profile" not in customer:
+            print(f"[INCREMENTAL] No existing profile found for {customer_id}. Skipping.")
+            return
+
+        existing_profile = customer["risk_profile"]
+        existing_timeline = existing_profile.get("timeline", "No timeline available.")
+        existing_sentiment = existing_profile.get("sentiment", "Unknown")
+        existing_escalation_score = existing_profile.get("escalation_score", 0)
+        existing_next_best_actions = existing_profile.get("next_best_action", [])
+
+        # Format resolved actions for the prompt
+        resolved_summary = "\n".join([
+            f"  - Action: {item.get('action', '')}\n    Work Done: {item.get('actionable_work_items', '')}"
+            for item in resolved_actions
+        ])
+
+        prompt = f"""You are an Executive AI Analyst for a Customer Experience Officer (CXO).
+
+An escalation ticket for Customer {customer_id} has been RESOLVED. Your task is to update the customer's risk profile incrementally based on the resolution data below.
+
+**EXISTING CUSTOMER STATE (your knowledge base):**
+- Current Sentiment: {existing_sentiment}
+- Current Escalation Risk Score: {existing_escalation_score}%
+- Current Next Best Actions: {existing_next_best_actions}
+- Current Journey Timeline:
+{existing_timeline}
+
+**NEW RESOLUTION DATA (incremental update):**
+- Resolved Actions & Work Done:
+{resolved_summary}
+
+- Customer Feedback Post-Resolution:
+  "{customer_feedback}"
+
+**YOUR TASK:**
+Using the existing state as context, generate an UPDATED Customer Risk Profile that reflects the resolution. 
+Add a new entry to the timeline (using today's date) to capture this resolution event and the customer feedback.
+Re-evaluate the Overall Sentiment and Escalation Risk Score based on whether the actions taken and customer feedback are positive indicators.
+If the customer feedback is positive and issues are resolved, the risk score should decrease accordingly.
+Keep the timeline format consistent:
+* **Day N (YYYY-MM-DD):** <Event description> [Overall Sentiment: <Sentiment>]
+
+Generate the complete updated profile including the refreshed timeline, updated sentiment, updated escalation score, root cause analysis, complaint themes, and next best actions.
+"""
+        try:
+            print(f"[INCREMENTAL] Calling LLM for incremental update of {customer_id}...")
+            profile_obj = self.llm_customer.invoke(prompt)
+
+            if isinstance(profile_obj, dict):
+                profile_dict = profile_obj
+            else:
+                profile_dict = profile_obj.model_dump()
+
+            self.customers_col.update_one(
+                {"_id": customer_id},
+                {"$set": {"risk_profile": profile_dict}}
+            )
+            print(f"[INCREMENTAL] Successfully updated profile for {customer_id}.")
+        except Exception as e:
+            print(f"[INCREMENTAL] Failed to update profile for {customer_id}: {e}")
+            traceback.print_exc()
+
 
 pipeline = CustomerDataPipeline()
