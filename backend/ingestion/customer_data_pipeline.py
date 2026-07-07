@@ -8,6 +8,9 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_openai import ChatOpenAI
 from pydantic import BaseModel, Field
 
+from telemetry import setup_telemetry
+setup_telemetry()
+
 load_dotenv()
 
 class SignalsOutput(BaseModel):

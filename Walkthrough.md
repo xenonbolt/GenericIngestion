@@ -1,32 +1,32 @@
-# Enterprise AI Agent Platform Walkthrough
+# Enterprise Customer Intelligence Platform Walkthrough
 
-Welcome to the comprehensive walkthrough of the Universal Agentic Intelligence Platform! This document details the advanced capabilities and architectural decisions implemented across the stack.
+Welcome to the comprehensive walkthrough of the Universal Customer Intelligence Platform! This document details the advanced capabilities and architectural decisions implemented across the stack to manage customer risk, timelines, and escalations.
 
-## 1. Multi-Agent Orchestration (LangGraph)
-The core intelligence of the platform is driven by a sophisticated Directed Acyclic Graph (DAG) using LangGraph. The `ChatbotAgent` orchestrates multiple specialized nodes:
-- **Query Translator:** Translates ambiguous conversational queries into precise search intents based on chat history.
-- **Intent Analyzer:** Classifies intents to route the graph (e.g., direct chat, vector search, graph search, data analysis).
-- **Task Decomposer:** Breaks down complex external search requests into manageable sub-tasks.
-- **Retrieval Synthesizer:** Executes vector similarity searches against ChromaDB.
-- **Graph Agents (NetworkX & Kuzu):** Specialized agents that execute programmatic graph traversal and Cypher queries to extract relationships.
-- **Pandas Data Agent:** A specialized Python REPL agent that dynamically writes and executes pandas code to analyze tabular CSV datasets on the fly.
-- **Relevance Evaluator:** An LLM-as-a-Judge node that grades retrieved contexts to prevent hallucinations.
-- **Generator Agent:** Synthesizes all gathered intelligence into the final response.
+## 1. Automated Customer Intelligence (LLM Ingestion)
+The core intelligence of the platform relies on automated, batch-processed analysis of raw customer interaction data (e.g., ServiceNow incidents or Zendesk tickets).
+- **Data Ingestion Pipeline:** The `CustomerDataPipeline` processes raw JSON ticket dumps.
+- **Holistic Timeline Generation:** Instead of analyzing tickets in isolation, the AI aggregates all events occurring on the same day into a unified `Customer Journey Timeline`.
+- **Sentiment Trajectory:** The LLM evaluates sentiment dynamically. Instead of a simple mathematical average, it evaluates the *trajectory* of the day (e.g., starting frustrated but ending satisfied leads to a "Positive Resolution" sentiment).
+- **Risk Profiling:** The system automatically calculates an `Escalation Risk Score (0-100)` based on SLA breaches, repeated issues, and negative sentiment.
 
-## 2. Advanced Real-Time Telemetry & Observability
-The platform features enterprise-grade tracing and observability:
-- **Langfuse Integration:** Global tracing is implemented at the lowest LLM layer. Every sub-agent, tool execution, and node transition is recorded and streamed to your Langfuse dashboard.
-- **Live React Flow DAG:** The frontend visualizes the agent's brain in real-time. As the backend traverses the LangGraph nodes, it broadcasts WebSockets events (`node_active`, `node_completed`). The React Flow canvas instantly updates, displaying live latency, token usage, and execution paths.
+## 2. Customer Delight Dashboard
+The primary interface for CX (Customer Experience) analysts.
+- **Tabular Risk Matrix:** Displays all customers, their account tiers, and their real-time escalation risk scores.
+- **Detailed Analysis Panel:** Clicking on a customer reveals their complete Journey Timeline, root cause analysis of their current issues, and AI-recommended Next Best Actions.
+- **Risk Threshold Triggers:** If a customer's Escalation Risk exceeds 50%, the platform automatically surfaces a "Request Escalation Manager" workflow.
 
-## 3. Multimodal Data Ingestion
-The system supports diverse unstructured and structured data:
-- **Unstructured Data (PDF, Image, Text):** Processed via local embedding models into ChromaDB.
-- **Structured Data (CSV):** Seamlessly ingested. The system can map structural entities into NetworkX/Kuzu graphs or analyze them dynamically using the Pandas agent.
-- **Auto-Fill Metadata:** The frontend features an "Auto-Fill" magic wand that uses Gemini's Vision/Audio models to automatically extract a summary, category, and tags from uploaded files before ingestion.
+## 3. Risk Manager Escalation Workflow
+A dedicated workflow for handling high-risk accounts.
+- **Role-Based Access Control:** Administrators can create users and assign them the `risk-manager` role using the Enterprise Admin Operations Control panel.
+- **Escalation Queue:** Risk Managers have access to a dedicated dashboard displaying all open escalation tickets.
+- **Actionable Work Items:** Managers must review the AI's "Next Best Actions" and document the specific work they performed against each action.
+- **Customer Feedback Loop:** Managers capture and log direct customer feedback upon resolving the issue.
 
-## 4. Short-Term & Long-Term Memory
-- **Short-Term Memory:** Uses `MongoMemoryManager` to preserve conversational context across the session, allowing for natural follow-up questions.
-- **Long-Term Memory:** Historical data is persisted permanently in MongoDB, allowing agents to access past user preferences and contexts.
+## 4. Incremental AI Re-Analysis
+To ensure the system remains performant and cost-effective, resolving an escalation does *not* trigger a full re-processing of a customer's historical data.
+- **Delta Updates:** When an escalation ticket is marked "Resolved", the backend triggers an asynchronous background task (`incremental_update_customer`).
+- **Knowledge Base Prompting:** The LLM is provided the customer's *existing* profile (timeline, sentiment, risk score) as a knowledge base.
+- **Intelligent Recalculation:** The LLM evaluates the manager's actionable work items and the new customer feedback to output an incrementally updated timeline and a newly adjusted (typically lowered) Risk Score.
 
 ---
 *Run `npm run dev` in the frontend and `uvicorn main:app` in the backend to start exploring these features!*

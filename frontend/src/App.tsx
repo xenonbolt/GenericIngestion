@@ -140,7 +140,7 @@ export default function App() {
             <div>
               <div className="flex items-center gap-2">
                 <h1 className="text-lg font-extrabold font-sans tracking-tight bg-gradient-to-r from-teal-600 to-violet-500 dark:from-teal-400 dark:to-violet-400 bg-clip-text text-transparent">
-                  Enterprise Agentic Intelligence
+                  Enterprise Customer Intelligence
                 </h1>
                 <span className="px-1.5 py-0.5 rounded bg-teal-50 dark:bg-teal-950/40 border border-teal-200/50 dark:border-teal-900/40 text-[9px] font-mono font-bold text-teal-600 dark:text-teal-400">
                   PLATFORM PROTOTYPE

@@ -82,7 +82,7 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
             <Shield className="h-6 w-6" />
           </div>
           <h1 className="text-2xl font-bold font-sans text-gray-900 dark:text-zinc-100 tracking-tight">
-            Enterprise Agentic Intelligence
+            Enterprise Customer Intelligence
           </h1>
           <p className="text-sm text-gray-500 dark:text-zinc-400 mt-1">
             Access secure multi-agent alignment frameworks
