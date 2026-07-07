@@ -24,14 +24,12 @@ logging.basicConfig(
 load_dotenv()
 import utils.security 
 
-from agents.state import streamer
-from graph.networkx_store import kg_store
-
 # Import Routers
 from api.auth import router as auth_router
 from api.admin import router as admin_router
-from api.chat import router as chat_router
 from api.upload import router as upload_router
+from api.snow import router as snow_router
+from api.risk import router as risk_router
 
 app = FastAPI(title="Enterprise Agentic AI Platform")
 
@@ -43,32 +41,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Include Routers
 app.include_router(auth_router)
 app.include_router(admin_router)
-app.include_router(chat_router)
 app.include_router(upload_router)
+app.include_router(snow_router)
+app.include_router(risk_router)
 
 @app.get("/")
 def read_root():
     return {"status": "ok", "message": "Universal Agentic Intelligence Platform API is running."}
 
-@app.get("/graph")
-def get_graph():
-    return kg_store.get_graph_data_for_ui()
-
-@app.websocket("/ws/agent-stream")
-async def websocket_endpoint(websocket: WebSocket):
-    await websocket.accept()
-    queue = asyncio.Queue()
-    streamer.add_queue(queue)
-    try:
-        while True:
-            event = await queue.get()
-            await websocket.send_text(event)
-    except WebSocketDisconnect:
-        pass
-    except asyncio.CancelledError:
-        pass
-    finally:
-        streamer.remove_queue(queue)

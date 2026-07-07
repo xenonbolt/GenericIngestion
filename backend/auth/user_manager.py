@@ -46,4 +46,24 @@ class UserManager:
         result = self.collection.update_one({"username": username}, {"$set": {"role": new_role}})
         return result.modified_count > 0
 
+    def update_user_timeline(self, username: str, timeline: str):
+        result = self.collection.update_one({"username": username}, {"$set": {"timeline": timeline}})
+        return result.modified_count > 0
+
+    def get_user_timeline(self, username: str):
+        user = self.collection.find_one({"username": username})
+        if user and "timeline" in user:
+            return user["timeline"]
+        return None
+
+    def update_user_risk_profile(self, username: str, risk_profile: dict):
+        result = self.collection.update_one({"username": username}, {"$set": {"risk_profile": risk_profile}})
+        return result.modified_count > 0
+
+    def get_user_risk_profile(self, username: str):
+        user = self.collection.find_one({"username": username})
+        if user and "risk_profile" in user:
+            return user["risk_profile"]
+        return None
+
 user_manager = UserManager()
